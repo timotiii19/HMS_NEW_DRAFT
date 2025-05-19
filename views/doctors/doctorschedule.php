@@ -13,6 +13,7 @@ $perPage = 5;
 
 if (isset($_SESSION['role']) && $_SESSION['role'] === 'Doctor' && isset($_SESSION['role_id'])) {
     $doctorID = $_SESSION['role_id'];
+    date_default_timezone_set('Asia/Manila'); // Adjust timezone accordingly
 
     // Get doctor name
     $stmt = $conn->prepare("SELECT DoctorName FROM doctor WHERE DoctorID = ?");
@@ -22,20 +23,18 @@ if (isset($_SESSION['role']) && $_SESSION['role'] === 'Doctor' && isset($_SESSIO
     $stmt->fetch();
     $stmt->close();
 
-    // Handle status update
+    // Handle status update via POST
     if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['schedule_id'], $_POST['status'])) {
         $scheduleID = intval($_POST['schedule_id']);
         $newStatus = $_POST['status'];
         $allowedStatuses = ['Confirmed', 'Outpatient', 'Inpatient', 'Cancelled', 'DNA', 'Follow-up Scheduled'];
 
         if (in_array($newStatus, $allowedStatuses)) {
-            // Check if follow-up date is provided
             $followUpDate = null;
             if ($newStatus === 'Follow-up Scheduled' && !empty($_POST['follow_up_date'])) {
                 $followUpDate = $_POST['follow_up_date'];
             }
 
-            // Conditional update
             if ($followUpDate) {
                 $updateStmt = $conn->prepare("UPDATE doctorschedule SET Status = ?, FollowUpDate = ? WHERE DoctorScheduleID = ?");
                 $updateStmt->bind_param("ssi", $newStatus, $followUpDate, $scheduleID);
@@ -44,74 +43,129 @@ if (isset($_SESSION['role']) && $_SESSION['role'] === 'Doctor' && isset($_SESSIO
                 $updateStmt->bind_param("si", $newStatus, $scheduleID);
             }
 
-            $statusMessage = $updateStmt->execute() ? "Status updated successfully!" : "Failed to update the status.";
+            if ($updateStmt->execute()) {
+                $statusMessage = "Status updated successfully!";
+            } else {
+                $statusMessage = "Failed to update the status.";
+            }
             $updateStmt->close();
+
+            // Additional processing for specific statuses
+            if (in_array($newStatus, ['Inpatient', 'Outpatient'])) {
+                // Fetch related schedule details for further processing
+                $selectSQL = "SELECT PatientID, DoctorID, DepartmentID, ScheduleDate, EndTime FROM doctorschedule WHERE DoctorScheduleID = ?";
+                $stmt = $conn->prepare($selectSQL);
+                $stmt->bind_param("i", $scheduleID);
+                $stmt->execute();
+                $result = $stmt->get_result();
+
+                if ($row = $result->fetch_assoc()) {
+                    $patientID = $row['PatientID'];
+                    $doctorID = $row['DoctorID'];
+                    $departmentID = $row['DepartmentID'];
+                    $scheduleDate = $row['ScheduleDate'];
+                    $endTime = $row['EndTime'];
+
+                    if ($newStatus === 'Inpatient') {
+                        $admissionDate = $endTime;
+                        $assignedLocationID = null; // Assign as needed or get from somewhere
+
+                        // Update patientType in patients table
+                        $updatePatientType = $conn->prepare("UPDATE patients SET patientType = 'Inpatient' WHERE PatientID = ?");
+                        $updatePatientType->bind_param("i", $patientID);
+                        $updatePatientType->execute();
+                        $updatePatientType->close();
+
+                        // Insert into inpatients table
+                        $insertSQL = "INSERT INTO inpatients (PatientID, DoctorID, DepartmentID, AdmissionDate, AssignedLocationID) VALUES (?, ?, ?, ?, ?)";
+                        $stmtInsert = $conn->prepare($insertSQL);
+                        $stmtInsert->bind_param("iiisi", $patientID, $doctorID, $departmentID, $admissionDate, $assignedLocationID);
+                        $stmtInsert->execute();
+                        $stmtInsert->close();
+                    }
+
+                    if ($newStatus === 'Outpatient') {
+                        $visitDate = $scheduleDate;
+                        $reason = "General Checkup";
+
+                        // Update patientType in patients table
+                        $updatePatientType = $conn->prepare("UPDATE patients SET patientType = 'Outpatient' WHERE PatientID = ?");
+                        $updatePatientType->bind_param("i", $patientID);
+                        $updatePatientType->execute();
+                        $updatePatientType->close();
+
+                        // Check if outpatient record exists
+                        $checkSQL = "SELECT 1 FROM outpatients WHERE PatientID = ? AND DoctorID = ? AND VisitDate = ?";
+                        $checkStmt = $conn->prepare($checkSQL);
+                        $checkStmt->bind_param("iis", $patientID, $doctorID, $visitDate);
+                        $checkStmt->execute();
+                        $checkStmt->store_result();
+
+                        if ($checkStmt->num_rows === 0) {
+                            $insertSQL = "INSERT INTO outpatients (PatientID, DoctorID, VisitDate, Reason) VALUES (?, ?, ?, ?)";
+                            $stmtInsert = $conn->prepare($insertSQL);
+                            $stmtInsert->bind_param("iiss", $patientID, $doctorID, $visitDate, $reason);
+                            $stmtInsert->execute();
+                            $stmtInsert->close();
+                        }
+                        $checkStmt->close();
+                    }
+                }
+                $stmt->close();
+            }
         }
     }
 
+    // Build dynamic WHERE clause for schedule fetching
+    $filterStatus = $_GET['filter'] ?? '';
 
-// Get search and filter inputs
-$searchTerm = $_GET['search'] ?? '';
-$filterStatus = $_GET['filter'] ?? '';
+    $whereConditions = "ds.DoctorID = ? AND ds.ScheduleDate >= CURDATE() AND ds.Status IN ('Confirmed', 'Follow-up Scheduled')";
+    $params = [$doctorID];
+    $types = "i";
 
-// Build the WHERE clause dynamically
-$whereConditions = "ds.DoctorID = ? AND ds.ScheduleDate >= CURDATE() AND ds.Status IN ('Confirmed', 'Follow-up Scheduled')";
-$params = [$doctorID];
-$types = "i";
+    if (!empty($searchTerm)) {
+        $whereConditions .= " AND ds.PatientName LIKE ?";
+        $params[] = '%' . $searchTerm . '%';
+        $types .= "s";
+    }
 
+    if (!empty($filterStatus)) {
+        $whereConditions .= " AND ds.Status = ?";
+        $params[] = $filterStatus;
+        $types .= "s";
+    }
 
-if (!empty($searchTerm)) {
-    $whereConditions .= " AND ds.PatientName LIKE ?";
-    $params[] = '%' . $searchTerm . '%';
-    $types .= "s";
-}
+    $query = "
+        SELECT 
+            ds.DoctorScheduleID, ds.ScheduleDate, ds.StartTime, ds.EndTime, ds.Status,
+            ds.PatientName, ds.PatientAge, ds.FollowUpDate,
+            p.Sex, p.PatientID,
+            a.Reason
+        FROM doctorschedule ds
+        LEFT JOIN patients p 
+            ON p.Name = ds.PatientName 
+            AND TIMESTAMPDIFF(YEAR, p.DateOfBirth, CURDATE()) = ds.PatientAge
+        LEFT JOIN appointments a 
+            ON a.PatientID = p.PatientID 
+            AND a.DoctorID = ds.DoctorID
+        WHERE $whereConditions
+        GROUP BY ds.DoctorScheduleID
+        ORDER BY ds.ScheduleDate ASC, ds.StartTime ASC
+    ";
 
-if (!empty($filterStatus)) {
-    $whereConditions .= " AND ds.Status = ?";
-    $params[] = $filterStatus;
-    $types .= "s";
-}
+    $stmt = $conn->prepare($query);
+    $stmt->bind_param($types, ...$params);
+    $stmt->execute();
+    $result = $stmt->get_result();
 
-// SQL query with dynamic WHERE clause
-$query = "
-    SELECT 
-        ds.DoctorScheduleID, ds.ScheduleDate, ds.StartTime, ds.EndTime, ds.Status,
-        ds.PatientName, ds.PatientAge, ds.FollowUpDate,
-        p.Sex, p.PatientID,
-        a.Reason
-    FROM doctorschedule ds
-    LEFT JOIN patients p 
-        ON p.Name = ds.PatientName 
-        AND TIMESTAMPDIFF(YEAR, p.DateOfBirth, CURDATE()) = ds.PatientAge
-    LEFT JOIN appointments a 
-        ON a.PatientID = p.PatientID 
-        AND a.DoctorID = ds.DoctorID
-    WHERE $whereConditions
-    GROUP BY ds.DoctorScheduleID
-    ORDER BY ds.ScheduleDate ASC, ds.StartTime ASC
-";
+    $schedules = [];
+    while ($row = $result->fetch_assoc()) {
+        $schedules[] = $row;
+    }
+    $stmt->close();
 
-// Prepare and execute
-$stmt = $conn->prepare($query);
-
-// Use unpacking (...) only in PHP 5.6+
-$stmt->bind_param($types, ...$params);
-
-$stmt->execute();
-$result = $stmt->get_result();
-
-// Fetch results
-$schedules = [];
-while ($row = $result->fetch_assoc()) {
-    $schedules[] = $row;
-}
-$stmt->close();
-
-
-    // Group schedules
-// Group schedules
+    // Group schedules by date categories
     $groupedSchedules = ['Today' => [], 'Tomorrow' => [], 'Next Week' => [], 'Next Month' => [], 'Upcoming' => []];
-    $completedSchedules = [];
 
     $today = new DateTime();
     $tomorrow = (clone $today)->modify('+1 day');
@@ -133,46 +187,38 @@ $stmt->close();
             $groupedSchedules['Upcoming'][] = $schedule;
         }
     }
-
 }
 ?>
 
 <div class="content">
-    <!-- Sticky Header with Title and Search/Filter Form -->
     <div class="header-bar">
         <h2>My Schedule</h2>
-        
         <form method="GET" class="search-form">
             <input type="text" name="search" placeholder="Search by patient name" value="<?= htmlspecialchars($searchTerm) ?>" />
-                <select name="filter" class="filter-dropdown">
-                    <option value="">All</option>
-                    <option value="Confirmed" <?= ($_GET['filter'] ?? '') === 'Confirmed' ? 'selected' : '' ?>>Confirmed</option>
-                    <option value="Outpatient" <?= ($_GET['filter'] ?? '') === 'Outpatient' ? 'selected' : '' ?>>Outpatient</option>
-                    <option value="Inpatient" <?= ($_GET['filter'] ?? '') === 'Inpatient' ? 'selected' : '' ?>>Inpatient</option>
-                    <option value="Cancelled" <?= ($_GET['filter'] ?? '') === 'Cancelled' ? 'selected' : '' ?>>Cancelled</option>
-                    <option value="DNA" <?= ($_GET['filter'] ?? '') === 'DNA' ? 'selected' : '' ?>>DNA</option>
-                    <option value="Follow-up Scheduled" <?= ($_GET['filter'] ?? '') === 'Follow-up Scheduled' ? 'selected' : '' ?>>Follow-up Scheduled</option>
-                </select>
+            <select name="filter" class="filter-dropdown">
+                <option value="">All</option>
+                <?php
+                $statusOptions = ['Confirmed', 'Outpatient', 'Inpatient', 'Cancelled', 'DNA', 'Follow-up Scheduled'];
+                foreach ($statusOptions as $option) {
+                    $selected = ($filterStatus === $option) ? 'selected' : '';
+                    echo "<option value=\"$option\" $selected>$option</option>";
+                }
+                ?>
+            </select>
             <button type="submit">Search</button>
         </form>
     </div>
 
-    <!-- Optional Status Message -->
     <?php if (isset($statusMessage)): ?>
         <div class="status-message float-message"><?= htmlspecialchars($statusMessage) ?></div>
         <script>
-            // Auto-hide the message after 3 seconds
             setTimeout(() => {
                 const msg = document.querySelector('.float-message');
-                if (msg) {
-                    msg.classList.add('fade-out');
-                }
+                if (msg) msg.classList.add('fade-out');
             }, 2000);
         </script>
     <?php endif; ?>
 
-
-    <!-- Grouped Schedule Cards by Date -->
     <?php foreach ($groupedSchedules as $label => $group): ?>
         <details class="group-section" <?= count($group) > 0 ? 'open' : '' ?>>
             <summary><strong><?= $label ?></strong> (<?= count($group) ?>)</summary>
@@ -223,10 +269,9 @@ $stmt->close();
                                     <label class="field-label center-label">Status</label>
                                     <div class="status-update-container">
                                         <?php if ($label === 'Today'): ?>
-                                            <select class="status-select" name="status">
+                                            <select class="status-select" name="status" required>
                                                 <?php
-                                                $statuses = ['Confirmed', 'Outpatient', 'Inpatient', 'Cancelled', 'DNA', 'Follow-up Scheduled'];
-                                                foreach ($statuses as $status) {
+                                                foreach ($statusOptions as $status) {
                                                     $selected = ($status === $schedule['Status']) ? 'selected' : '';
                                                     echo "<option value=\"$status\" $selected>$status</option>";
                                                 }
@@ -244,11 +289,12 @@ $stmt->close();
                                         <div class="followup-tag">Follow-Up Check Up</div>
                                     <?php endif; ?>
                                 </div>
-                                <!--  Display Follow-Up Date if it exists -->
+
                                 <?php if (!empty($schedule['FollowUpDate'])): ?>
                                     <label class="field-label">Follow-Up Date</label>
                                     <div class="field-value"><?= htmlspecialchars($schedule['FollowUpDate']) ?></div>
                                 <?php endif; ?>
+
                                 <input type="hidden" name="follow_up_date" class="follow-up-hidden" />
                             </div>
                         </form>
@@ -263,23 +309,10 @@ $stmt->close();
                         </div>
                     <?php endif; ?>
                 <?php else: ?>
-                    <p style="margin-left: 20px; color: #666;">- - - - No schedule - - - -</p>
-                <?php endif; ?>
-            </div>
-        </details>
-    <?php endforeach; ?>
-    <!-- Follow-Up Modal -->
-    <div id="followUpModal" class="followup-modal">
-        <div class="modal-content">
-            <h3>Select Follow-Up Date & Time</h3>
-            <input type="datetime-local" id="modalDatetime" class="modal-datetime" />
-            <div class="modal-buttons">
-                <button id="confirmFollowUp" class="confirm-btn">Confirm</button>
-                <button id="cancelFollowUp" class="cancel-btn">Cancel</button>
-            </div>
-        </div>
-    </div>
-</div>
+
+<p>No schedules found for this section.</p> <?php endif; ?> </div> </details> <?php endforeach; ?> </div>
+
+
 <script>
 document.addEventListener('DOMContentLoaded', function () {
     const modal = document.getElementById('followUpModal');
@@ -375,17 +408,14 @@ document.addEventListener('DOMContentLoaded', function () {
 
 
 <style>
-    
     .content {
-        margin-left: 200px; /* Assuming sidebar is fixed width */
+        margin-left: 250px; /* Assuming sidebar is fixed width */
         padding: 20px 40px 60px; /* Top padding allows space for both fixed header and sticky bar */
         background-color: #e0f7fa;
         min-height: 100vh;
         box-sizing: border-box;
     }
-    body {
-        background-color: #f8f9fa; /* Light background color */
-    }  
+
     .header-bar {
         position: sticky;
         top: 80px; /* Positioned below the fixed header */

@@ -142,7 +142,7 @@ if (isset($_SESSION['role']) && $_SESSION['role'] === 'doctor' && isset($_SESSIO
     </div>
 
     <div class="right-section">
-        <img src="../../assets/user.png" alt="Avatar" class="avatar">
+        <img src="../../images/user.png" alt="Avatar" class="avatar">
         <div class="user-dropdown">
 <span>Welcome Dr. <?php echo htmlspecialchars($doctorName); ?> <i class="fas fa-chevron-down"></i></span>
         </div>
