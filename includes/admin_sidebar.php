@@ -1,60 +1,88 @@
 <div class="sidebar" id="sidebar">
   <div class="sidebar-header">
     <button id="sidebarToggle" aria-label="Toggle Sidebar">&#9776;</button>
-    <h2>Admin Dashboard</h2>
+    <h2 class="sidebar-title">Admin Dashboard</h2>
   </div>
   <ul>
-    <li><a href="/HMS-main/views/admin/dashboard.php">Dashboard</a></li>
-    <li>
-      <a href="javascript:void(0);" class="dropdown-btn">Employees</a>
-      <ul class="dropdown-content">
-        <li><a href="/HMS-main/views/admin/employees.php">Employees Management</a></li> 
-        <li style="text-align: center;">⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯</li>
-        <li><a href="/HMS-main/views/admin/admin.php">Admins Management</a></li>
-        <li><a href="/HMS-main/views/admin/doctors.php">Doctors Management</a></li>
-        <li><a href="/HMS-main/views/admin/nurses.php">Nurses Management</a></li>
-        <li><a href="/HMS-main/views/admin/pharmacists.php">Pharmacists Management</a></li>
-        <li><a href="/HMS-main/views/admin/cashiers.php">Cashiers Management</a></li>
-      </ul>
-    </li>
+    <li><a href="/HMS-main/views/admin/dashboard.php"><i class="fa fa-chart-line"></i><span class="label">Dashboard</span></a></li>
 
-    <li><a href="/HMS-main/views/admin/appointments.php">Appointments Management</a></li>
-    <li><a href="/HMS-main/views/admin/departments.php">Department Management</a></li>
-    <li><a href="/HMS-main/views/admin/location.php">Location Management</a></li>
-    <li><a href="/HMS-main/views/admin/reports.php">Billing Management & Reports</a></li>
-    <li><a href="/HMS-main/views/admin/patients.php">Patients</a></li>
-    <!-- <li><a href="/HMS-main/views/admin/visitor.php">Visitors Management</a></li> -->
-    <li><a href="/HMS-main/auth/logout.php">Logout</a></li>
+    <li class="dropdown">
+    <a href="javascript:void(0);" class="dropdown-btn">
+      <i class="fa fa-user-cog"></i><span class="label">Employees</span>
+    </a>
+    <ul class="dropdown-content">
+      <li><a href="/HMS-main/views/admin/employees.php">Employees Management</a></li> 
+      <li style="text-align: center;">⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯</li>
+      <li><a href="/HMS-main/views/admin/admin.php">Admins Management</a></li>
+      <li><a href="/HMS-main/views/admin/doctors.php">Doctors Management</a></li>
+      <li><a href="/HMS-main/views/admin/nurses.php">Nurses Management</a></li>
+      <li><a href="/HMS-main/views/admin/pharmacists.php">Pharmacists Management</a></li>
+      <li><a href="/HMS-main/views/admin/cashiers.php">Cashiers Management</a></li>
+    </ul>
+  </li>
+
+
+    <li><a href="/HMS-main/views/admin/appointments.php"><i class="fa fa-calendar-check"></i><span class="label">Appointments</span></a></li>
+    <li><a href="/HMS-main/views/admin/departments.php"><i class="fa fa-building"></i><span class="label">Departments</span></a></li>
+    <li><a href="/HMS-main/views/admin/location.php"><i class="fa fa-map-marker-alt"></i><span class="label">Locations</span></a></li>
+    <li><a href="/HMS-main/views/admin/reports.php"><i class="fa fa-file-invoice-dollar"></i><span class="label">Billing</span></a></li>
+    <li><a href="/HMS-main/views/admin/patients.php"><i class="fa fa-procedures"></i><span class="label">Patients</span></a></li>
+    <li><a href="/HMS-main/auth/logout.php"><i class="fa fa-sign-out-alt"></i><span class="label">Logout</span></a></li>
   </ul>
 </div>
 
+
 <script>
-  // Dropdown toggle for Employees menu
+  // Get all dropdown buttons
   const dropdownBtns = document.querySelectorAll('.dropdown-btn');
+  const sidebarToggle = document.getElementById('sidebarToggle');
+  const sidebar = document.getElementById('sidebar');
+  const content = document.querySelector('.content');
+
+  // Ensure dropdowns open only on click, not hover
   dropdownBtns.forEach(btn => {
-    btn.addEventListener('click', () => {
-      btn.classList.toggle('active');
+    btn.addEventListener('click', (e) => {
+      e.preventDefault(); // Prevent default link behavior
+
       const dropdownContent = btn.nextElementSibling;
-      if (dropdownContent.style.display === 'block') {
-        dropdownContent.style.display = 'none';
-      } else {
+      const isOpen = btn.classList.contains('active');
+
+      // Close all dropdowns
+      dropdownBtns.forEach(otherBtn => {
+        otherBtn.classList.remove('active');
+        const otherDropdown = otherBtn.nextElementSibling;
+        if (otherDropdown) {
+          otherDropdown.style.display = 'none';
+        }
+      });
+
+      // Toggle current dropdown
+      if (!isOpen) {
+        btn.classList.add('active');
         dropdownContent.style.display = 'block';
       }
     });
   });
 
-  // Sidebar toggle with hamburger button
-  const sidebarToggle = document.getElementById('sidebarToggle');
-  const sidebar = document.getElementById('sidebar');
-  const content = document.querySelector('.content');
-
+  // Sidebar toggle handler
   sidebarToggle.addEventListener('click', () => {
     sidebar.classList.toggle('collapsed');
-    if(sidebar.classList.contains('collapsed')){
-      content.style.marginLeft = '60px';  // small margin when collapsed
+
+    // Adjust main content margin
+    if (sidebar.classList.contains('collapsed')) {
+      content.style.marginLeft = '60px';
     } else {
       content.style.marginLeft = '220px';
     }
+
+    // Fully close any open dropdowns
+    dropdownBtns.forEach(btn => {
+      btn.classList.remove('active');
+      const dropdownContent = btn.nextElementSibling;
+      if (dropdownContent) {
+        dropdownContent.style.display = 'none';
+      }
+    });
   });
 </script>
 
@@ -65,12 +93,12 @@
     background-color: #e0f7fa;
     color: #333;
     box-sizing: border-box;
-    padding-top: 60px; /* Ensure body content starts below the header */
+    padding-top: 60px;
   }
 
   .sidebar {
     position: fixed;
-    top: 70px; /* Push the sidebar below the header */
+    top: 70px;
     width: 190px;
     height: calc(100vh - 60px);
     background-color: #9c335a;
@@ -81,14 +109,9 @@
     transition: width 0.3s ease;
   }
 
-  /* Collapsed sidebar */
   .sidebar.collapsed {
     width: 60px;
     padding: 20px 10px;
-  }
-
-  .sidebar.collapsed h2 {
-    display: none; /* Hide the text when collapsed */
   }
 
   .sidebar-header {
@@ -96,6 +119,15 @@
     flex-direction: column;
     align-items: flex-end;
     margin-bottom: 20px;
+  }
+
+  .sidebar-title {
+    margin: 0;
+    font-size: 1.4em;
+  }
+
+  .sidebar.collapsed .sidebar-title {
+    display: none;
   }
 
   #sidebarToggle {
@@ -110,12 +142,6 @@
     margin-bottom: 5px;
   }
 
-  .sidebar h2 {
-    margin: 0;
-    font-size: 1.5em;
-    
-  }
-
   .sidebar ul {
     list-style-type: none;
     padding: 0;
@@ -123,13 +149,14 @@
 
   .sidebar ul li {
     margin-bottom: 10px;
-    position: relative;
   }
 
   .sidebar ul li a {
+    display: flex;
+    align-items: center;
+    gap: 10px;
     color: white;
     text-decoration: none;
-    display: block;
     padding: 8px;
     font-size: 1em;
     white-space: nowrap;
@@ -137,9 +164,19 @@
     text-overflow: ellipsis;
   }
 
+  .sidebar ul li a i {
+    font-size: 1.2em;
+    width: 20px;
+    text-align: center;
+  }
+
   .sidebar ul li a:hover {
     background-color: #7a0154;
     border-radius: 4px;
+  }
+
+  .sidebar.collapsed .label {
+    display: none;
   }
 
   .content {
@@ -148,7 +185,6 @@
     transition: margin-left 0.3s ease;
   }
 
-  /* When sidebar collapsed, adjust content margin */
   .sidebar.collapsed ~ .content {
     margin-left: 60px;
   }
@@ -158,13 +194,21 @@
     list-style-type: none;
     padding-left: 10px;
     background-color: #923f78;
+    margin-top: 5px;
   }
 
   .dropdown-content li a {
+    display: block;
     padding: 6px 8px;
     font-size: 0.85em !important;
-    opacity: 0.85;
-    margin-left: 0px;
+    opacity: 0.9;
+    color: white;
+    text-decoration: none;
+  }
+
+  .dropdown-content li a:hover {
+    background-color: #7a0154;
+    border-radius: 4px;
   }
 
   .sidebar .dropdown-content li a {
@@ -174,9 +218,15 @@
   .dropdown-btn::after {
     content: " ▼";
     font-size: 0.7em;
+    margin-left: auto;
   }
 
   .dropdown-btn.active::after {
     content: " ▲";
   }
+
+  .sidebar.collapsed .dropdown-btn::after {
+    display: none;
+  }
+
 </style>
