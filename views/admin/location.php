@@ -336,7 +336,7 @@ include('../../includes/admin_sidebar.php');
                     $capacity = $room['RoomCapacity'];
 
                     // Count occupied beds
-                    $sqlCount = "SELECT COUNT(*) as count FROM inpatients WHERE AssignedLocationID = $locationID";
+                    $sqlCount = "SELECT COUNT(*) as count FROM inpatients WHERE LocationID = $locationID";
                     $resCount = $conn->query($sqlCount);
                     $count = $resCount->fetch_assoc()['count'];
 

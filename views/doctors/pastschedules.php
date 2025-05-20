@@ -58,7 +58,7 @@ if (isset($_SESSION['role']) && $_SESSION['role'] === 'Doctor' && isset($_SESSIO
 ?>
 
 <div class="content">
-    <h2>Past Schedules</h2>
+    <h1>Past Schedules</h1>
 
     <?php if (count($pastSchedules) > 0): ?>
         <div class="table-container">
@@ -100,15 +100,19 @@ if (isset($_SESSION['role']) && $_SESSION['role'] === 'Doctor' && isset($_SESSIO
 
 <style>
     .content {
-        margin-left: 250px;
+        margin-left: 200px;
         padding: 20px 40px;
-        background-color: #fff3f3;
+        background-color:rgb(255, 255, 255);
         min-height: 100vh;
     }
 
-    h2 {
+    h1 {
         margin-bottom: 20px;
         color: #a00037;
+    }
+    
+     h2 {
+        color:rgb(255, 255, 255);
     }
 
     .table-container {

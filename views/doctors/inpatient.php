@@ -18,7 +18,6 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['action']) && $_POST['
     $conn->begin_transaction();
 
     try {
-        // Lock the location row for update to prevent race conditions
         $stmt = $conn->prepare("SELECT RoomCapacity FROM locations WHERE LocationID = ? FOR UPDATE");
         $stmt->bind_param("i", $locationId);
         $stmt->execute();
@@ -30,7 +29,6 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['action']) && $_POST['
             throw new Exception("Location not found.");
         }
 
-        // Count occupied beds at location (only currently admitted patients)
         $stmt = $conn->prepare("
             SELECT COUNT(*) as occupied 
             FROM inpatients 
@@ -46,7 +44,6 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['action']) && $_POST['
             throw new Exception("Selected location is full.");
         }
 
-        // Update inpatient's assigned location
         $stmt = $conn->prepare("UPDATE inpatients SET LocationID = ? WHERE InpatientID = ?");
         $stmt->bind_param("ii", $locationId, $inpatientId);
         if (!$stmt->execute()) {
@@ -64,15 +61,18 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['action']) && $_POST['
     exit;
 }
 
-// Insert new inpatients from doctorschedule where Status = 'Inpatient'
-$sql = "SELECT PatientID, DoctorID, DepartmentID, EndTime FROM doctorschedule WHERE Status = 'Inpatient'";
+$sql = "SELECT PatientID, DoctorID, DepartmentID, ScheduleDate, EndTime FROM doctorschedule WHERE Status = 'Inpatient'";
 $result = $conn->query($sql);
 if ($result && $result->num_rows > 0) {
     while ($row = $result->fetch_assoc()) {
         $patientID = $row['PatientID'];
         $doctorID = $row['DoctorID'];
         $departmentID = $row['DepartmentID'];
-        $admissionDate = $row['EndTime'];
+        $scheduleDate = $row['ScheduleDate'];
+        $endTime = $row['EndTime'];
+        
+        // Combine date and time into a datetime string
+        $admissionDate = date('Y-m-d H:i:s', strtotime("$scheduleDate $endTime"));
 
         $check = $conn->prepare("SELECT * FROM inpatients WHERE PatientID = ? AND DoctorID = ?");
         $check->bind_param("ii", $patientID, $doctorID);
@@ -89,10 +89,8 @@ if ($result && $result->num_rows > 0) {
     }
 }
 
-// Fetch all inpatients
 $inpatients = $conn->query("SELECT * FROM inpatients ORDER BY AdmissionDate DESC");
 
-// Fetch all locations grouped by building and floor with occupied count
 $locationsSql = "
     SELECT 
         l.LocationID, l.LocationName, l.ConditionType, l.RoomType, l.RoomCapacity,
@@ -110,7 +108,6 @@ $locationsSql = "
 
 $locationsResult = $conn->query($locationsSql);
 
-// Organize locations by building and floor for tabs
 $locations = [];
 if ($locationsResult) {
     while ($loc = $locationsResult->fetch_assoc()) {
@@ -129,7 +126,7 @@ if ($locationsResult) {
 <style>
 body {
     font-family: Arial, sans-serif;
-    margin: 20px;
+    margin: 0px;
 }
 .tabs {
     display: flex;
@@ -207,10 +204,16 @@ body {
     background-color: #eb6d9b;
     color: white;
 }
+.content {
+            margin-left: 220px; /* matches sidebar width */
+            padding: 80px 20px 20px; /* padding top accounts for fixed header */
+            background-color: #f4f9f9;
+            min-height: 100vh;
+}
 </style>
 </head>
 <body>
-
+<div class="content">
 <h2>Current Inpatients</h2>
 <table class="inpatients-table">
     <thead>
@@ -299,7 +302,6 @@ document.addEventListener("DOMContentLoaded", () => {
     const floorsContainer = document.getElementById('floorsContainer');
     let selectedInpatientId = null;
 
-    // Switch building tabs
     tabs.forEach(tab => {
         tab.addEventListener('click', () => {
             tabs.forEach(t => t.classList.remove('active'));
@@ -312,7 +314,6 @@ document.addEventListener("DOMContentLoaded", () => {
         });
     });
 
-    // Track which inpatient is selected for assignment
     document.querySelectorAll('.inpatients-table .assign-room-btn').forEach(btn => {
         btn.addEventListener('click', () => {
             selectedInpatientId = btn.getAttribute('data-inpatientid');
@@ -320,7 +321,6 @@ document.addEventListener("DOMContentLoaded", () => {
         });
     });
 
-    // Assign room buttons in room tables
     floorsContainer.querySelectorAll('.assign-room-btn').forEach(btn => {
         btn.addEventListener('click', () => {
             if (!selectedInpatientId) {
@@ -347,12 +347,10 @@ document.addEventListener("DOMContentLoaded", () => {
                 if (text.trim() === "success") {
                     alert("Location assigned successfully.");
 
-                    // Find the row for this room
                     const rows = floorsContainer.querySelectorAll('tr');
                     rows.forEach(row => {
                         const assignBtn = row.querySelector('.assign-room-btn');
                         if (assignBtn && assignBtn.getAttribute('data-locationid') === locationId) {
-                            // Update occupied beds
                             let occupiedCell = row.cells[3];
                             let capacityCell = row.cells[2];
                             let statusCell = row.cells[4];
@@ -363,7 +361,6 @@ document.addEventListener("DOMContentLoaded", () => {
                             occupied += 1;
                             occupiedCell.textContent = occupied;
 
-                            // Update status & button if full
                             if (occupied >= capacity) {
                                 statusCell.textContent = "Full";
                                 statusCell.classList.remove('room-available');
@@ -382,13 +379,11 @@ document.addEventListener("DOMContentLoaded", () => {
                         }
                     });
 
-                    // Update inpatient table assigned location
                     const inpatientRow = document.querySelector(`.inpatients-table tr[data-inpatientid="${selectedInpatientId}"]`);
                     if (inpatientRow) {
                         inpatientRow.cells[7].textContent = `ID: ${locationId}`;
                     }
 
-                    // Reset selection
                     selectedInpatientId = null;
                 } else {
                     alert("Error assigning location: " + text);

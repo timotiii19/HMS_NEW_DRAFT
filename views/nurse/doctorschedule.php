@@ -8,6 +8,8 @@ include('../../includes/nurse_header.php');
 include('../../includes/nurse_sidebar.php');
 include('../../config/db.php');
 
+$location_id = $conn->query("SELECT * FROM locations");
+
 // Update schedule if form is submitted
 if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['update_schedule'])) {
     $id = $_POST['DoctorScheduleID'];

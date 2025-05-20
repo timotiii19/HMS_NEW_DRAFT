@@ -170,10 +170,11 @@ if (isset($_SESSION['role']) && $_SESSION['role'] === 'Doctor' && isset($_SESSIO
 
 <!-- Styles -->
 <style>
+
 .content {
-    margin-left: 250px;
+    margin-left: 210px;
     padding: 60px 40px 40px 40px;
-    background-color: #e0f7fa;
+    background-color:rgb(255, 255, 255);
     min-height: 100vh;
     box-sizing: border-box;
 }

@@ -41,8 +41,12 @@ if (!$procedures) {
             box-shadow: 0 4px 6px rgba(0,0,0,0.1);
         }
 
-        h2, .card-header h4 {
+        h1 {
             color: #343a40;
+        }
+
+        h2 {
+            color: white;
         }
 
         .form-section {
@@ -78,7 +82,7 @@ if (!$procedures) {
 
 <div class="main-content">
     <div class="main-box">
-        <h2 class="text-center mb-4">Lab Procedures</h2>
+        <h1 class="text-center mb-4">Lab Procedures</h1>
 
         <!-- Add New Lab Procedure Form -->
         <div class="card form-section">
