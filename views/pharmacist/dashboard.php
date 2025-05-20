@@ -106,8 +106,11 @@ if ($hour < 12) {
             <div class="card-icon"><i class="fa fa-capsules"></i></div>
             <div class="card-title">Pharmacy</div>
         </a>
+        <a href="/HMS-main/views/pharmacist/generate_pharmacy_pdf.php" class="card" target="_blank">
+            <div class="card-icon"><i class="fa fa-file-pdf"></i></div>
+            <div class="card-title">Export Pharmacy PDF</div>
+        </a>
     </div>
 </div>
-
 </body>
 </html>

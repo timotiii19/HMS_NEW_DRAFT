@@ -9,7 +9,7 @@ include('../../includes/doctor_header.php');
 include('../../includes/doctor_sidebar.php');
 include('../../config/db.php');
 
-date_default_timezone_set('Asia/Manila'); 
+date_default_timezone_set('Asia/Manila');
 
 $doctor_name = $_SESSION['username'];
 $doctorID = $_SESSION['role_id'] ?? null;
@@ -44,8 +44,8 @@ $procedures = $result ? mysqli_fetch_all($result, MYSQLI_ASSOC) : [];
 
         .content {
             padding: 40px;
-            margin-top: 40px;
-            margin-left: 220px;
+            margin-top: 80px; /* space for fixed header */
+            margin-left: 220px; /* space for sidebar */
             width: calc(100% - 220px);
             box-sizing: border-box;
         }
@@ -82,11 +82,15 @@ $procedures = $result ? mysqli_fetch_all($result, MYSQLI_ASSOC) : [];
             background-color: #a42c2c;
         }
 
-        input[type="text"], input[type="number"], input[type="date"], input[type="datetime-local"] {
+        /* Scope form input styling to prevent global effect */
+        .card-box input[type="text"],
+        .card-box input[type="number"],
+        .card-box input[type="date"],
+        .card-box input[type="datetime-local"] {
             width: 100%;
-            padding: 10px;
-            border-radius: 8px;
-            border: 2px solid #ccc;
+            padding: 12px;
+            border-radius: 10px;
+            border: 4px solid #ccc;
             box-sizing: border-box;
             margin-bottom: 15px;
         }
@@ -118,13 +122,23 @@ $procedures = $result ? mysqli_fetch_all($result, MYSQLI_ASSOC) : [];
             background-color: #f5bebe;
             color: #730000;
         }
+
         .subtitle {
-        font-size: 18px;
-        color: #a42c2c;
-        font-weight: bold;
-        margin-top: 10px;
-        margin-bottom: 30px;
-    }
+            font-size: 18px;
+            color: #a42c2c;
+            font-weight: bold;
+            margin-top: 10px;
+            margin-bottom: 30px;
+        }
+
+        /* Example: Targeting the search bar inside the header */
+        header input[type="text"],
+        .header input[type="text"] {
+            height: 13px;          /* slightly taller, default is usually ~28-30px */
+            padding: 6px 12px;     /* more vertical and horizontal padding */
+            font-size: 16px;       /* slightly bigger font */
+            border-radius: 6px;    /* keep it rounded */
+        }
 
     </style>
 </head>
