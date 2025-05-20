@@ -28,7 +28,7 @@ if (isset($_SESSION['role']) && $_SESSION['role'] === 'Doctor' && isset($_SESSIO
             $startTimeObj = DateTime::createFromFormat('H:i:s', $startTime);
             $endTime = $startTimeObj->modify('+30 minutes')->format('H:i:s');
 
-            // Get DepartmentID (not LocationID) from doctor table
+            // Get DepartmentID
             $deptQuery = $conn->prepare("SELECT DepartmentID FROM doctor WHERE DoctorID = ?");
             $deptQuery->bind_param("i", $doctorID);
             $deptQuery->execute();
@@ -110,73 +110,80 @@ if (isset($_SESSION['role']) && $_SESSION['role'] === 'Doctor' && isset($_SESSIO
 }
 ?>
 
-
 <!-- Main Content Area -->
 <div class="content">
     <h2>Patients of Dr. <?= htmlspecialchars($doctorName) ?></h2>
     <div class="card-container">
-        <?php foreach ($patients as $patient): ?>
-            <div class="card">
-                <form method="POST">
-                    <input type="hidden" name="Name" value="<?= htmlspecialchars($patient['Name']) ?>">
-                    <input type="hidden" name="Age" value="<?= htmlspecialchars($patient['Age']) ?>">
-                    <input type="hidden" name="AppointmentDate" value="<?= htmlspecialchars(explode(' ', $patient['Schedule'])[0]) ?>">
-                    <input type="hidden" name="AppointmentTime" value="<?= htmlspecialchars(explode(' ', $patient['Schedule'])[1]) ?>">
-                    <input type="hidden" name="PatientID" value="<?= htmlspecialchars($patient['PatientID']) ?>">
-                    <input type="hidden" name="AppointmentID" value="<?= htmlspecialchars($patient['AppointmentID']) ?>">
-
-                    <p class="patient-id">Patient ID: <?= str_pad(htmlspecialchars($patient['PatientID']), 3, '0', STR_PAD_LEFT) ?></p>
-
-                    <label class="field-label">Name</label>
-                    <div class="field-value"><?= htmlspecialchars($patient['Name']) ?></div>
-
-                    <div class="field-row">
-                        <div class="field-group">
-                            <label class="field-label">Age</label>
-                            <div class="field-value"><?= htmlspecialchars($patient['Age']) ?></div>
-                        </div>
-                        <div class="field-group">
-                            <label class="field-label">Sex</label>
-                            <div class="field-value"><?= htmlspecialchars($patient['Sex']) ?></div>
-                        </div>
-                    </div>
-
-                    <label class="field-label">Condition or Reason</label>
-                    <div class="field-value scrollable-text"><?= htmlspecialchars($patient['Reason']) ?></div>
-
-                    <label class="field-label">Schedule</label>
-                    <div class="schedule-row">
-                        <div class="field-value"><?= htmlspecialchars(explode(' ', $patient['Schedule'])[0]) ?></div>
-                        <div class="field-value"><?= date("g:i A", strtotime(explode(' ', $patient['Schedule'])[1])) ?></div>
-                    </div>
-
-                    <div class="toggle-button">
-                        <button type="button" class="confirm-btn" title="Confirm" onclick="confirmCard(this)">✔</button>
-                        <button type="button" class="reschedule-btn" onclick="toggleReschedule(this)" title="Change Schedule">🕒</button>
-                    </div>
-
-                    <div class="reschedule" style="display: none; margin-top: 10px;">
-                        <label class="field-label">New Date:</label>
-                        <input type="date" name="newDate" required>
-                        <label class="field-label">New Time:</label>
-                        <input type="time" name="newTime" required>
-                        <button type="submit" name="reschedule">Save</button>
-                    </div>
-                </form>
+        <?php if (empty($patients)): ?>
+            <div class="no-patients-message">
+                <p>No pending appointments to confirm.</p>
             </div>
-        <?php endforeach; ?>
+        <?php else: ?>
+            <?php foreach ($patients as $patient): ?>
+                <div class="card">
+                    <form method="POST">
+                        <input type="hidden" name="Name" value="<?= htmlspecialchars($patient['Name']) ?>">
+                        <input type="hidden" name="Age" value="<?= htmlspecialchars($patient['Age']) ?>">
+                        <input type="hidden" name="AppointmentDate" value="<?= htmlspecialchars(explode(' ', $patient['Schedule'])[0]) ?>">
+                        <input type="hidden" name="AppointmentTime" value="<?= htmlspecialchars(explode(' ', $patient['Schedule'])[1]) ?>">
+                        <input type="hidden" name="PatientID" value="<?= htmlspecialchars($patient['PatientID']) ?>">
+                        <input type="hidden" name="AppointmentID" value="<?= htmlspecialchars($patient['AppointmentID']) ?>">
+
+                        <p class="patient-id">Patient ID: <?= str_pad(htmlspecialchars($patient['PatientID']), 3, '0', STR_PAD_LEFT) ?></p>
+
+                        <label class="field-label">Name</label>
+                        <div class="field-value"><?= htmlspecialchars($patient['Name']) ?></div>
+
+                        <div class="field-row">
+                            <div class="field-group">
+                                <label class="field-label">Age</label>
+                                <div class="field-value"><?= htmlspecialchars($patient['Age']) ?></div>
+                            </div>
+                            <div class="field-group">
+                                <label class="field-label">Sex</label>
+                                <div class="field-value"><?= htmlspecialchars($patient['Sex']) ?></div>
+                            </div>
+                        </div>
+
+                        <label class="field-label">Condition or Reason</label>
+                        <div class="field-value scrollable-text"><?= htmlspecialchars($patient['Reason']) ?></div>
+
+                        <label class="field-label">Schedule</label>
+                        <div class="schedule-row">
+                            <div class="field-value"><?= htmlspecialchars(explode(' ', $patient['Schedule'])[0]) ?></div>
+                            <div class="field-value"><?= date("g:i A", strtotime(explode(' ', $patient['Schedule'])[1])) ?></div>
+                        </div>
+
+                        <div class="toggle-button">
+                            <button type="button" class="confirm-btn" title="Confirm" onclick="confirmCard(this)">✔</button>
+                            <button type="button" class="reschedule-btn" onclick="toggleReschedule(this)" title="Change Schedule">🕒</button>
+                        </div>
+
+                        <div class="reschedule" style="display: none; margin-top: 10px;">
+                            <label class="field-label">New Date:</label>
+                            <input type="date" name="newDate" required>
+                            <label class="field-label">New Time:</label>
+                            <input type="time" name="newTime" required>
+                            <button type="submit" name="reschedule">Save</button>
+                        </div>
+                    </form>
+                </div>
+            <?php endforeach; ?>
+        <?php endif; ?>
     </div>
 </div>
+
 
 <!-- Styles -->
 <style>
 
 .content {
-    margin-left: 210px;
-    padding: 60px 40px 40px 40px;
+    margin-left: 230px;
+    padding: 40px;
     background-color:rgb(255, 255, 255);
     min-height: 100vh;
     box-sizing: border-box;
+    margin-top: -30px;
 }
 
 .card-container {
@@ -333,6 +340,18 @@ if (isset($_SESSION['role']) && $_SESSION['role'] === 'Doctor' && isset($_SESSIO
 @keyframes fadein {
     from { opacity: 0; }
     to { opacity: 1; }
+}
+
+.no-patients-message {
+    width: 100%;
+    text-align: center;
+    padding: 60px 20px;
+    font-size: 20px;
+    color: #777;
+    font-weight: bold;
+    background-color: #f0f0f0;
+    border-radius: 15px;
+    box-shadow: 0 2px 6px rgba(0,0,0,0.1);
 }
 
 

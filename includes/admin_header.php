@@ -163,7 +163,7 @@
         <span>
           <?php
           if (isset($_SESSION['role']) && isset($_SESSION['full_name'])) {
-            echo htmlspecialchars($_SESSION['role'] . ' - ' . $_SESSION['full_name']);
+            echo htmlspecialchars($_SESSION['role'] . ': ' . $_SESSION['full_name']);
           } else {
             echo "Guest User";
           }

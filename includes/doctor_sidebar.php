@@ -17,7 +17,7 @@
 
     .sidebar {
       position: fixed;
-      top: 70px;
+      top: 50px;
       width: 190px;
       height: calc(100vh - 60px);
       background-color: #9c335a;

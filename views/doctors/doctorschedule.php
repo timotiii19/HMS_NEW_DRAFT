@@ -409,8 +409,8 @@ document.addEventListener('DOMContentLoaded', function () {
 
 <style>
     .content {
-        margin-left: 250px; /* Assuming sidebar is fixed width */
-        padding: 20px 40px 60px; /* Top padding allows space for both fixed header and sticky bar */
+        margin-left: 220px; /* Assuming sidebar is fixed width */
+        padding: 40px; /* Top padding allows space for both fixed header and sticky bar */
         background-color: #e0f7fa;
         min-height: 100vh;
         box-sizing: border-box;

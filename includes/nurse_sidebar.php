@@ -114,7 +114,6 @@
           <li><a href="/HMS-main/views/nurse/patient.php"><i class="fa fa-users"></i>View Patients</a></li>
           <li style="text-align: center;"></li>
           <li style="text-align: center; opacity: 0.1;">⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯</li>
-          <li><a href="/HMS-main/views/nurse/my_patients.php"><i class="fa fa-user-md"></i>My Patients</a></li>
           <li><a href="/HMS-main/views/nurse/inpatient.php"><i class="fa fa-bed"></i>Inpatients</a></li>
           <li><a href="/HMS-main/views/nurse/outpatient.php"><i class="fa fa-walking"></i>Outpatients</a></li>
         </ul>

@@ -9,17 +9,22 @@ include('../../config/db.php');
 // Fetch nurse ID from session
 $nurse_id = $_SESSION['role_id'];
 
-// Get only inpatients assigned to this nurse
+// Fetch all locations for dropdown
+$locations_result = $conn->query("SELECT LocationID, LocationName FROM locations");
+$locations = [];
+while ($loc = $locations_result->fetch_assoc()) {
+    $locations[] = $loc;
+}
+
+// Get inpatients (assigned to this nurse or all – adjust if filtering is needed)
 $inpatients = $conn->prepare("
     SELECT i.InpatientID, i.PatientID, i.LocationID, 
-           p.Name AS PatientName, p.Sex, p.AssignedNurseID,
+           p.Name AS PatientName, p.Sex, p.NurseID,
            v.Temperature, v.BloodPressure, v.Pulse, v.NurseNotes
     FROM inpatients i
     JOIN patients p ON i.PatientID = p.PatientID
     LEFT JOIN patientvitals v ON i.PatientID = v.PatientID
-    WHERE p.AssignedNurseID = ?
 ");
-$inpatients->bind_param("i", $nurse_id);
 $inpatients->execute();
 $inpatients = $inpatients->get_result();
 
@@ -32,31 +37,28 @@ if (isset($_POST['update_inpatient'])) {
     $pulse = $_POST['pulse'];
     $nurse_notes = $_POST['nurse_notes'];
 
-    // Step 1: Get PatientID from inpatient
-    $stmt = $conn->prepare("SELECT PatientID FROM inpatients WHERE InpatientID = ?");
+    // Step 1: Get PatientID
+    $stmt = $conn->prepare("SELECT p.PatientID 
+                            FROM inpatients i
+                            JOIN patients p ON i.PatientID = p.PatientID
+                            WHERE i.InpatientID = ?");
     $stmt->bind_param("i", $inpatient_id);
     $stmt->execute();
     $res = $stmt->get_result();
     $inpatient = $res->fetch_assoc();
     $patient_id = $inpatient['PatientID'];
 
-    // Step 2: Verify nurse authorization
-    $auth = $conn->prepare("SELECT AssignedNurseID FROM patients WHERE PatientID = ?");
-    $auth->bind_param("i", $patient_id);
-    $auth->execute();
-    $auth_result = $auth->get_result();
-    $row = $auth_result->fetch_assoc();
+    // Step 1.5: Update assigned nurse
+    $updateNurse = $conn->prepare("UPDATE patients SET NurseID = ? WHERE PatientID = ?");
+    $updateNurse->bind_param("ii", $nurse_id, $patient_id);
+    $updateNurse->execute();
 
-    if (!$row || $row['AssignedNurseID'] != $nurse_id) {
-        die("Unauthorized update attempt.");
-    }
-
-    // Step 3: Update Location
+    // Step 2: Update location
     $stmt = $conn->prepare("UPDATE inpatients SET LocationID = ? WHERE InpatientID = ?");
-    $stmt->bind_param("si", $location, $inpatient_id);
+    $stmt->bind_param("ii", $location, $inpatient_id);
     $stmt->execute();
 
-    // Step 4: Check if vitals exist
+    // Step 3: Check if vitals exist
     $check = $conn->prepare("SELECT VitalID FROM patientvitals WHERE PatientID = ?");
     $check->bind_param("i", $patient_id);
     $check->execute();
@@ -64,13 +66,17 @@ if (isset($_POST['update_inpatient'])) {
 
     if ($result->num_rows > 0) {
         // Update vitals
-        $stmt3 = $conn->prepare("UPDATE patientvitals SET Temperature = ?, BloodPressure = ?, Pulse = ?, NurseNotes = ? WHERE PatientID = ?");
-        $stmt3->bind_param("ssssi", $temperature, $blood_pressure, $pulse, $nurse_notes, $patient_id);
+        $stmt3 = $conn->prepare("UPDATE patientvitals 
+            SET Temperature = ?, BloodPressure = ?, Pulse = ?, NurseNotes = ?, NurseID = ? 
+            WHERE PatientID = ?");
+        $stmt3->bind_param("ssssii", $temperature, $blood_pressure, $pulse, $nurse_notes, $nurse_id, $patient_id);
         $stmt3->execute();
     } else {
         // Insert new vitals
-        $stmt3 = $conn->prepare("INSERT INTO patientvitals (PatientID, Temperature, BloodPressure, Pulse, NurseNotes) VALUES (?, ?, ?, ?, ?)");
-        $stmt3->bind_param("issss", $patient_id, $temperature, $blood_pressure, $pulse, $nurse_notes);
+        $stmt3 = $conn->prepare("INSERT INTO patientvitals 
+            (PatientID, Temperature, BloodPressure, Pulse, NurseNotes, NurseID) 
+            VALUES (?, ?, ?, ?, ?, ?)");
+        $stmt3->bind_param("issssi", $patient_id, $temperature, $blood_pressure, $pulse, $nurse_notes, $nurse_id);
         $stmt3->execute();
     }
 
@@ -81,6 +87,8 @@ if (isset($_POST['update_inpatient'])) {
 include('../../includes/nurse_header.php');
 include('../../includes/nurse_sidebar.php');
 ?>
+
+
 
 <!DOCTYPE html>
 <html>
@@ -115,7 +123,15 @@ include('../../includes/nurse_sidebar.php');
                 <td><input type="text" name="blood_pressure" value="<?= htmlspecialchars($row['BloodPressure']) ?>" placeholder="e.g. 120/80" required></td>
                 <td><input type="text" name="pulse" value="<?= htmlspecialchars($row['Pulse']) ?>" placeholder="e.g. 72" required></td>
                 <td><textarea name="nurse_notes" placeholder="Additional notes..." required><?= htmlspecialchars($row['NurseNotes']) ?></textarea></td>
-                <td><textarea name="location_id" required><?= htmlspecialchars($row['LocationID']) ?></textarea></td>
+                <td>
+                    <select name="location_id" required>
+                        <?php foreach ($locations as $loc): ?>
+                            <option value="<?= $loc['LocationID'] ?>" <?= $loc['LocationID'] == $row['LocationID'] ? 'selected' : '' ?>>
+                                <?= htmlspecialchars($loc['LocationName']) ?>
+                            </option>
+                        <?php endforeach; ?>
+                    </select>
+                </td>
                 <td>
                     <input type="hidden" name="inpatient_id" value="<?= $row['InpatientID'] ?>">
                     <button class="upd-btn" type="submit" name="update_inpatient">Update</button>
@@ -139,7 +155,7 @@ include('../../includes/nurse_sidebar.php');
 <?php else: ?>
     <tr>
         <td colspan="9" style="text-align: center; font-style: italic; color: #666;">
-            No inpatients assigned to you.
+            No inpatients.
         </td>
     </tr>
 <?php endif; ?>
@@ -180,24 +196,69 @@ body {
     background-color: #ffffff;
 }
 .content {
+    overflow-x: auto;
+    max-width: 100%;
     padding: 40px;
+    box-sizing: border-box;
 }
+
 table {
+    table-layout: fixed;
     width: 100%;
+    max-width: 100%;
+    margin: 20px auto;
     border-collapse: collapse;
-    margin-top: 20px;
 }
+
+
 th, td {
     padding: 10px;
     text-align: center;
     border: 1px solid #ddd;
+    white-space: normal;
+    word-wrap: break-word;
 }
 th {
     background-color: #f8f9fa;
 }
-form input, form button, textarea {
-    padding: 5px 10px;
-    margin-top: 5px;
+
+form input[type="text"],
+textarea,
+select {
+    max-width: 100px;     /* maximum width */
+    width: 100%;          /* fill the cell width */
+    box-sizing: border-box; /* include padding & border inside width */
+    font-size: 14px;
+    padding: 4px 8px;
+}
+
+input[name="temperature"],
+input[name="blood_pressure"],
+input[name="pulse"] {
+    width: 80px;           /* fixed width suitable for short inputs */
+    max-width: 80px;       /* prevent stretching */
+    padding: 4px 8px;
+    font-size: 14px;
+    box-sizing: border-box;
+    text-align: center;    /* center the numbers for neatness */
+}
+
+/* Target first column (Inpatient ID) */
+table th:first-child,
+table td:first-child {
+    width: 90px;       /* or smaller, like 50px */
+    max-width: 100px;
+    white-space: nowrap;  /* keep ID on one line */
+    text-align: center;
+    padding: 8px 4px;     /* less padding to save space */
+    overflow: hidden;
+    text-overflow: ellipsis;
+}
+
+button {
+    max-width: 100px;
+    font-size: 14px;
+    padding: 4px 8px;
 }
 button.view-btn {
     background-color: #6f42c1;
@@ -264,10 +325,12 @@ button.view-btn:hover {
     margin: 12px 0;
     font-size: 16px;
     color: #555;
+    
 }
 .info-row strong {
     font-weight: 600;
     color: #444;
+    
 }
 button.upd-btn {
     background-color: rgb(27, 223, 145);

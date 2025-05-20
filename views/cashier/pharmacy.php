@@ -29,7 +29,7 @@ $meds = $conn->query("SELECT * FROM pharmacy");
             <tr>
                 <td><?= $row['MedicineID'] ?></td>
                 <td><?= $row['MedicineName'] ?></td>
-                <td>₹<?= $row['Price'] ?></td>
+                <td>₱<?= number_format($row['Price'], 2) ?></td>
                 <td><?= $row['StockQuantity'] ?></td>
             </tr>
         <?php } ?>

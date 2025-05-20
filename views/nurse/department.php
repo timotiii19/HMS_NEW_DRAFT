@@ -21,10 +21,10 @@ $departments = $conn->query("SELECT * FROM department");
     <link rel="stylesheet" type="text/css" href="../../css/style.css">
     <style>
         body {
-   background-color:rgb(255, 255, 255); /* Light background color */
-     }  
+            background-color:rgb(255, 255, 255); /* Light background color */
+        }  
         .content {
-            padding: 20px;
+            padding: 40px;
         }
 
         .button {
@@ -75,7 +75,7 @@ $departments = $conn->query("SELECT * FROM department");
             <tr>
                 <th>Department ID</th>
                 <th>Department Name</th>
-                <th>Department Building</th>
+                <th>Department Location</th>
             </tr>
         </thead>
         <tbody>
@@ -83,7 +83,7 @@ $departments = $conn->query("SELECT * FROM department");
             <tr>
                 <td><?= $row['DepartmentID'] ?></td>
                 <td><?= $row['DepartmentName'] ?></td>
-                <td><?= $row['DepartmentBuilding'] ?></td>
+                <td><?= $row['DepartmentLocation'] ?></td>
             </tr>
             <?php } ?>
         </tbody>

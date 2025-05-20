@@ -41,112 +41,132 @@ include('../../includes/nurse_sidebar.php');
 
 <style>
     body {
-        font-family: Arial, sans-serif;
-        background-color: #ffffff;
-    }
+    font-family: Arial, sans-serif;
+    background-color: #ffffff;
+    margin: 0;
+    padding: 0;
+    overflow-x: hidden;
+}
 
+.content {
+    margin-top: 4%;
+    padding: 20px;
+    max-width: 100%;
+    margin-left: 250px;
+    margin-right: 20px;
+    box-sizing: border-box;
+}
+
+table {
+    width: 100%;
+    border-collapse: collapse;
+    margin-top: 20px;
+    overflow-x: auto;
+}
+
+th, td {
+    padding: 10px;
+    text-align: center;
+    border: 1px solid #ddd;
+    white-space: nowrap;
+}
+
+th {
+    background-color: #f8f9fa;
+}
+
+form input, form select, form button {
+    padding: 8px 12px;
+    margin-top: 5px;
+    width: 100%;
+    max-width: 100%;
+    box-sizing: border-box;
+    border-radius: 6px;
+    border: 1px solid #ccc;
+    font-size: 14px;
+}
+
+form label {
+    margin-top: 15px;
+    display: block;
+    font-weight: 600;
+    color: #333;
+}
+
+button.btn-primary {
+    background-color: #6f42c1;
+    color: white;
+    border: none;
+    border-radius: 6px;
+    padding: 12px 20px;
+    cursor: pointer;
+    margin-top: 20px;
+    width: auto;
+    font-size: 16px;
+}
+
+button.btn-primary:hover {
+    background-color: #512da8;
+}
+
+.modal {
+    position: fixed;
+    z-index: 999;
+    left: 0;
+    top: 0;
+    width: 100%;
+    height: 100%;
+    overflow: auto;
+    background-color: rgba(0,0,0,0.5);
+    display: none;
+    justify-content: center;
+    align-items: center;
+}
+
+.modal-content {
+    border: 2px solid purple;
+    border-radius: 12px;
+    padding: 0;
+    background-color: #fff;
+    max-width: 800px;
+    width: 90%;
+    box-shadow: 0 0 12px rgba(0,0,0,0.1);
+    position: relative;
+}
+
+.modal-content iframe {
+    width: 100%;
+    height: 600px;
+    border: none;
+    border-radius: 12px;
+}
+
+.close {
+    position: absolute;
+    top: 10px;
+    right: 20px;
+    font-size: 28px;
+    font-weight: bold;
+    color: #888;
+    cursor: pointer;
+    z-index: 1000;
+}
+
+.close:hover {
+    color: #000;
+}
+
+@media (max-width: 768px) {
     .content {
-        padding: 40px;
-        max-width: 830px;
-        margin-left: 210px;
-        margin-top: 20px;
+        margin-left: 0;
+        padding: 15px;
     }
 
-    table {
-        width: 150%;
-        border-collapse: collapse;
-        margin-top: 20px;
+    table, form input, form select, form button {
+        font-size: 13px;
     }
+}
 
-    th, td {
-        padding: 10px;
-        text-align: center;
-        border: 1px solid #ddd;
-    }
-
-    th {
-        background-color: #f8f9fa;
-    }
-
-    form input, form select, form button {
-        padding: 8px 12px;
-        margin-top: 5px;
-        width: 150%;
-        box-sizing: border-box;
-        border-radius: 6px;
-        border: 1px solid #ccc;
-        font-size: 14px;
-    }
-
-    form label {
-        margin-top: 15px;
-        display: block;
-        font-weight: 600;
-        color: #333;
-    }
-
-    button.btn-primary {
-        background-color: #6f42c1;
-        color: white;
-        border: none;
-        border-radius: 6px;
-        padding: 12px 20px;
-        cursor: pointer;
-        margin-top: 20px;
-        width: auto;
-        font-size: 16px;
-    }
-
-    button.btn-primary:hover {
-        background-color: #512da8;
-    }
-
-    .modal {
-        position: fixed;
-        z-index: 999;
-        left: 0;
-        top: 0;
-        width: 100%;
-        height: 100%;
-        overflow: auto;
-        background-color: rgba(0,0,0,0.5);
-        display: none;
-        justify-content: center;
-        align-items: center;
-    }
-
-    .modal-content {
-        border: 2px solid purple;
-        border-radius: 12px;
-        padding: 0;
-        background-color: #fff;
-        max-width: 800px;
-        width: 90%;
-        box-shadow: 0 0 12px rgba(0,0,0,0.1);
-        position: relative;
-    }
-
-    .modal-content iframe {
-        width: 100%;
-        height: 600px;
-        border: none;
-        border-radius: 12px;
-    }
-
-    .close {
-        position: absolute;
-        top: 10px;
-        right: 20px;
-        font-size: 28px;
-        font-weight: bold;
-        color: #888;
-        cursor: pointer;
-        z-index: 1000;
-    }
-
-    .close:hover {
-        color: #000;
-    }
 </style>
 
 <div class="content">
@@ -156,13 +176,15 @@ include('../../includes/nurse_sidebar.php');
         <input type="text" name="name" id="name" required>
 
         <label for="dob">Date of Birth:</label>
-        <input type="date" name="dob" id="dob" required>
+        <input type="date" name="dob" id="dob" max="<?= date('Y-m-d'); ?>" required>
+
 
         <label for="sex">Sex:</label>
         <select name="sex" id="sex" required>
             <option value="">Select Sex</option>
             <option value="Male">Male</option>
             <option value="Female">Female</option>
+            
         </select>
 
         <label for="address">Address:</label>
@@ -171,9 +193,7 @@ include('../../includes/nurse_sidebar.php');
         <label for="contact">Contact:</label>
         <input type="text" name="contact" id="contact" required>
 
-        <label for="assigned_nurse_id">Assigned Nurse:</label>
 <input type="hidden" name="assigned_nurse_id" id="assigned_nurse_id" value="<?= $loggedInNurseId ?>">
-<input type="text" class="form-control" value="Nurse (You)" disabled style="background-color:rgb(255, 255, 255); border: 1px solid #ced4da; padding: 0.375rem 0.75rem; border-radius: 0.25rem;">
 
 
         <button type="submit" class="btn-primary">Add Patient</button>

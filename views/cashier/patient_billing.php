@@ -14,7 +14,7 @@ if ($conn->connect_error) {
 }
 
 // Fetch Medicine
-$medicines_result = $conn->query("SELECT MedicineID, MedicineName, Price FROM Pharmacy");
+$medicines_result = $conn->query("SELECT MedicineID, MedicineName, Price, StockQuantity FROM Pharmacy");
 
 // Fetch doctors
 $doctors_result = $conn->query("SELECT DoctorID, DoctorName, DoctorFee FROM doctor");
@@ -30,19 +30,90 @@ $new_receipt_number = str_pad($last_receipt + 1, 6, '0', STR_PAD_LEFT);
 
 // Add bill
 if (isset($_POST['add_bill'])) {
-    $patient_id = $_POST['patient_id'];
-    $doctor_fee = (float) $_POST['doctor_fee'];
-    $medicine_total = (float) $_POST['medicine_total'];
-    $total = $doctor_fee + $medicine_total;
-    $payment_date = $_POST['payment_date'];
-    $receipt = $_POST['receipt'];
-    $doctor_id = $_POST['doctor_id'];
+    $conn->begin_transaction();
+    
+    try {
+        $patient_parts = explode(' - ', $_POST['patient_id']);
+        $patient_id = (int)$patient_parts[0];
+        $doctor_parts = explode(' - ', $_POST['doctor_id']);
+        $doctor_id = (int)$doctor_parts[0];
+        $doctor_fee = (float)$_POST['doctor_fee'];
+        $medicine_total = (float)$_POST['medicine_total'];
+        $total = $doctor_fee + $medicine_total;
+        $payment_date = $_POST['payment_date'];
+        $receipt = $_POST['receipt'];
 
-    $stmt = $conn->prepare("INSERT INTO patientbilling (PatientID, DoctorID, DoctorFee, MedicineCost, TotalAmount, PaymentDate, Receipt) VALUES (?, ?, ?, ?, ?, ?, ?)");
-    $stmt->bind_param("iidddss", $patient_id, $doctor_id, $doctor_fee, $medicine_total, $total, $payment_date, $receipt);
-    $stmt->execute();
-    header("Location: patient_billing.php");
-    exit();
+        // Insert billing record
+        $stmt = $conn->prepare("INSERT INTO patientbilling (PatientID, DoctorID, DoctorFee, MedicineCost, TotalAmount, PaymentDate, Receipt) VALUES (?, ?, ?, ?, ?, ?, ?)");
+        $stmt->bind_param("iidddss", $patient_id, $doctor_id, $doctor_fee, $medicine_total, $total, $payment_date, $receipt);
+        $stmt->execute();
+
+        // Handle medicine stock updates
+if (!empty($_POST['medicine_ids']) && !empty($_POST['medicine_quantities'])) {
+    // Convert input to arrays consistently
+    $medicine_ids = is_array($_POST['medicine_ids']) ? 
+        $_POST['medicine_ids'] : 
+        explode(',', $_POST['medicine_ids']);
+    
+    $quantities = is_array($_POST['medicine_quantities']) ? 
+        $_POST['medicine_quantities'] : 
+        explode(',', $_POST['medicine_quantities']);
+
+    // Debug output
+    error_log("Medicine IDs (type: " . gettype($medicine_ids) . "): " . print_r($medicine_ids, true));
+    error_log("Quantities (type: " . gettype($quantities) . "): " . print_r($quantities, true));
+
+    // Verify we have valid arrays
+    if (!is_array($medicine_ids) || !is_array($quantities)) {
+        throw new Exception("Medicine data is not in valid format");
+    }
+
+    // Verify counts match
+    if (count($medicine_ids) !== count($quantities)) {
+        throw new Exception("Medicine IDs and quantities count mismatch");
+    }
+
+    for ($i = 0; $i < count($medicine_ids); $i++) {
+        // Extract just the numeric ID part (handles "ID - Name" format)
+        $med_id = (int)$medicine_ids[$i];
+        $qty = (int)$quantities[$i];
+        
+        // Skip if invalid values
+        if ($med_id <= 0 || $qty <= 0) {
+            error_log("Skipping invalid entry: MedicineID=$med_id, Quantity=$qty");
+            continue;
+        }
+        
+        // Debug output
+        error_log("Processing: MedicineID=$med_id, Quantity=-$qty");
+        
+        $update_stmt = $conn->prepare("UPDATE Pharmacy SET StockQuantity = StockQuantity - ? WHERE MedicineID = ?");
+        $update_stmt->bind_param("ii", $qty, $med_id);
+        
+        if (!$update_stmt->execute()) {
+            error_log("Update failed for MedicineID $med_id: " . $update_stmt->error);
+            throw new Exception("Failed to update stock for MedicineID $med_id");
+        }
+        
+        // Verify the update worked
+        $affected = $update_stmt->affected_rows;
+        error_log("Update affected $affected rows for MedicineID $med_id");
+        
+        $update_stmt->close();
+    }
+}
+
+        $conn->commit();
+        $_SESSION['success_message'] = "Bill added successfully!";
+        header("Location: patient_billing.php?patient_id=".$patient_id);
+        exit();
+        
+    } catch (Exception $e) {
+        $conn->rollback();
+        $_SESSION['error_message'] = "Error: " . $e->getMessage();
+        header("Location: patient_billing.php");
+        exit();
+    }
 }
 
 
@@ -303,7 +374,7 @@ JOIN doctor d ON b.DoctorID = d.DoctorID;");
             position: fixed;
             top: 0; left: 0;
             width: 100%; height: 100%;
-            background: rgba(0,0,0,0.6);
+            background: rgba(255, 255, 255, 0.6);
             justify-content: center;
             align-items: center;
         }
@@ -328,18 +399,9 @@ JOIN doctor d ON b.DoctorID = d.DoctorID;");
         font-size: 14px;
     }
 
-    .btn-edit {
-        background-color: #4CAF50; /* Green */
-        color: white;
-    }
-
     .btn-delete {
         background-color: #eb6d9b; /* Red */
         color: white;
-    }
-
-    .btn-edit:hover {
-        background-color: #45a049;
     }
 
     .btn-delete:hover {
@@ -377,16 +439,225 @@ JOIN doctor d ON b.DoctorID = d.DoctorID;");
 </head>
 <body>
 
+<script>
+let selectedMedicinePrices = [];
+
+function setDoctorFee() {
+    const doctorInput = document.getElementById("doctorSearch");
+    const datalist = document.getElementById("doctorList").options;
+    const value = doctorInput.value.trim();
+
+    for (let option of datalist) {
+        if (option.value === value) {
+            const fee = option.getAttribute("data-fee");
+            document.getElementById("doctorFeeDisplay").value = "₱" + parseFloat(fee).toFixed(2);
+            document.getElementById("doctorFee").value = parseFloat(fee).toFixed(2);
+            return;
+        }
+    }
+
+    document.getElementById("doctorFeeDisplay").value = "";
+    document.getElementById("doctorFee").value = "";
+}
+
+function handleEnter(event) {
+    if (event.key === 'Enter') {
+        event.preventDefault();
+        addMedicine();
+    }
+}
+
+function showStock() {
+    const input = document.getElementById("medicineSearch");
+    const value = input.value.trim();
+    const stockDisplay = document.getElementById("stockDisplay");
+    const options = document.getElementById("medicineList").options;
+    
+    // Reset stock display if input is empty
+    if (!value) {
+        stockDisplay.textContent = "Stock: -";
+        return;
+    }
+    
+    // Find the matching option
+    for (let opt of options) {
+        if (opt.value === value) {
+            const stock = opt.getAttribute("data-stock");
+            stockDisplay.textContent = `Stock: ${stock}`;
+            return;
+        }
+    }
+    
+    // If no match found
+    stockDisplay.textContent = "Stock: -";
+}
+
+// Global variable to track selected medicines with quantities
+let selectedMedicines = [];
+
+function addMedicine() {
+    try {
+        // Get input elements
+        const input = document.getElementById("medicineSearch");
+        const quantityInput = document.getElementById("medicineQuantity");
+        
+        // Validate inputs
+        if (!input || !quantityInput) {
+            console.error("Could not find input elements");
+            return;
+        }
+
+        const value = input.value.trim();
+        const quantity = parseInt(quantityInput.value) || 1;
+        
+        if (!value) {
+            alert("Please select a medicine first");
+            return;
+        }
+
+        // Get medicine options
+        const options = document.getElementById("medicineList").options;
+        if (!options || options.length === 0) {
+            console.error("No medicine options found");
+            return;
+        }
+
+        let medicineData = null;
+        
+        // Find the selected medicine in datalist
+        for (let opt of options) {
+            if (opt.value === value) {
+                medicineData = {
+                    id: opt.value.split(' - ')[0],
+                    name: opt.value,
+                    price: parseFloat(opt.getAttribute("data-price")) || 0,
+                    stock: parseInt(opt.getAttribute("data-stock")) || 0
+                };
+                break;
+            }
+        }
+
+        if (!medicineData) {
+            alert("Medicine not found!");
+            return;
+        }
+
+        // Check stock availability
+        if (medicineData.stock < quantity) {
+            alert(`Not enough stock! Only ${medicineData.stock} available.`);
+            return;
+        }
+
+        // Check if medicine already exists in selected list
+        const existingIndex = selectedMedicines.findIndex(m => m.id === medicineData.id);
+        
+        if (existingIndex >= 0) {
+            // Update existing medicine quantity
+            selectedMedicines[existingIndex].quantity += quantity;
+        } else {
+            // Add new medicine
+            selectedMedicines.push({
+                id: medicineData.id,
+                name: medicineData.name,
+                price: medicineData.price,
+                quantity: quantity
+            });
+        }
+
+        // Update UI
+        updateSelectedMedicinesList();
+        input.value = "";
+        quantityInput.value = "1";
+        
+    } catch (error) {
+        console.error("Error in addMedicine:", error);
+        alert("An error occurred while adding medicine");
+    }
+}
+
+function updateSelectedMedicinesList() {
+    try {
+        const list = document.getElementById("selectedMedicines");
+        if (!list) {
+            console.error("Could not find selected medicines list");
+            return;
+        }
+
+        list.innerHTML = "";
+        
+        selectedMedicines.forEach((med, index) => {
+            const li = document.createElement("li");
+            li.style.marginBottom = "8px";
+            li.style.padding = "8px";
+            li.style.borderRadius = "4px";
+            li.style.backgroundColor = "#f8f9fa"; // Added background color
+            
+            // Changed from input to span for non-editable quantity
+            li.innerHTML = `
+                ${med.name} - 
+                Qty: <span style="display: inline-block; width: 50px; padding: 4px; font-weight: bold;">${med.quantity}</span>
+                × ₱${med.price.toFixed(2)} = ₱${(med.price * med.quantity).toFixed(2)}
+                <button type="button" onclick="removeMedicine(${index})" 
+                        style="margin-left:10px; 
+                               background:rgba(220, 53, 70, 0.39); 
+                               color: white; 
+                               border: none; 
+                               border-radius: 4px; 
+                               padding: 1px 4px;
+                               font-size: 10px;
+                               width: 50px;
+                               height: 25px;
+                               line-height: 20px;">×</button>
+            `;
+            list.appendChild(li);
+        });
+    } catch (error) {
+        console.error("Error updating medicines list:", error);
+    }
+}
+
+function removeMedicine(index) {
+    if (index >= 0 && index < selectedMedicines.length) {
+        selectedMedicines.splice(index, 1);
+        updateSelectedMedicinesList();
+    }
+}
+
+function calculateTotal() {
+    // Update quantities from input fields
+    const quantityInputs = document.querySelectorAll('.medicine-qty');
+    quantityInputs.forEach((input, index) => {
+        selectedMedicines[index].quantity = parseInt(input.value) || 1;
+    });
+
+    // Prepare data
+    let total = 0;
+    const medicineIds = [];
+    const quantities = [];
+    
+    selectedMedicines.forEach(med => {
+        total += med.price * med.quantity;
+        medicineIds.push(med.id); // Just the numeric ID
+        quantities.push(med.quantity);
+    });
+
+    // Update display
+    document.getElementById("medicineTotalDisplay").value = "₱" + total.toFixed(2);
+    document.getElementById("medicineTotal").value = total.toFixed(2);
+    
+    // Update hidden inputs as comma-separated strings
+    document.getElementById("hidden_medicine_ids").value = medicineIds.join(',');
+    document.getElementById("hidden_medicine_quantities").value = quantities.join(',');
+}
+</script>
+
+
 <div class="content">
     <h2>Billing Management</h2>
 
     <form method="post" action="">
         <label>Patient Name:</label>
-        <input 
-            list="patientList" 
-            name="patient_id" 
-            placeholder="Select Patient" 
-            required>
+        <input list="patientList" name="patient_id" id="patient_id_input" placeholder="Select Patient" required>
         <datalist id="patientList">
             <?php
             $patients_result->data_seek(0);
@@ -419,30 +690,43 @@ JOIN doctor d ON b.DoctorID = d.DoctorID;");
         <input type="hidden" name="doctor_fee" id="doctorFee" required>
 
         <label>Search Medicine:</label>
-        <input list="medicineList" id="medicineSearch" placeholder="Type to search..." onkeydown="handleEnter(event)">
+        <div style="display: flex; align-items: center; gap: 10px;">
+        <input list="medicineList" id="medicineSearch" placeholder="Type to search..." 
+            oninput="showStock()" onchange="showStock()">
+            <span id="stockDisplay" style="font-size: 14px;">Stock: -</span>
+        </div>
+
+        <label>Quantity:</label>
+        <input type="number" id="medicineQuantity" min="1" value="1" style="width: 60px;">
+
         <button type="button" onclick="addMedicine()">Add</button>
+        <ul id="selectedMedicines"></ul>
 
-        <ul id="selectedMedicines">
-            <!-- Selected medicines will be listed here -->
-        </ul>
+        <button type="button" onclick="calculateTotal()">Calculate Total</button> 
+        <!-- Changed text from "Done" to "Calculate Total" for clarity -->
 
-        <button type="button" onclick="calculateTotal()">Done</button>
+
+        <input type="hidden" name="medicine_ids" id="hidden_medicine_ids">
+        <input type="hidden" name="medicine_quantities" id="hidden_medicine_quantities">
+
 
         <label>Medicine Total:</label>
-        <input type="text" id="medicineCostDisplay" readonly>
-        <input type="hidden" name="medicine_total" id="medicineCost" required>
+        <input type="text" id="medicineTotalDisplay" readonly>
+        <input type="hidden" name="medicine_total" id="medicineTotal" required>
 
         <datalist id="medicineList">
-        <?php
-        $medicines_result->data_seek(0);
-        while ($med = $medicines_result->fetch_assoc()) {
-            echo "<option value='{$med['MedicineID']} - " . htmlspecialchars($med['MedicineName']) . "' data-price='{$med['Price']}'></option>";
-        }
-        ?>
+            <?php
+            $medicines_result->data_seek(0); // Reset pointer to beginning
+            while ($med = $medicines_result->fetch_assoc()) {
+                echo "<option value='{$med['MedicineID']} - " . htmlspecialchars($med['MedicineName']) . "' 
+                    data-price='{$med['Price']}' 
+                    data-stock='{$med['StockQuantity']}'></option>";
+            }
+            ?>
         </datalist>
 
         <label>Payment Date:</label>
-        <input type="date" name="payment_date" required>
+        <input type="date" name="payment_date" value="<?php echo date('Y-m-d'); ?>" readonly required>
 
         <label>Receipt Number:</label>
         <input type="text" name="receipt" value="<?php echo $new_receipt_number; ?>" readonly>
@@ -475,20 +759,6 @@ JOIN doctor d ON b.DoctorID = d.DoctorID;");
                 <td><?= htmlspecialchars($row['PaymentDate']) ?></td>
                 <td><?= htmlspecialchars($row['Receipt']) ?></td>
                 <td>
-
-                <!-- Inside your billing table -->
-                <button 
-                    class="edit-btn"
-                    onclick="openEditModal(this)"
-                    data-billing-id="<?= $row['BillingID'] ?>"
-                    data-patient="<?= $row['PatientID'] ?> - <?= htmlspecialchars($row['PatientName']) ?>"
-                    data-doctor="<?= $row['DoctorID'] ?> - <?= htmlspecialchars($row['DoctorName']) ?>"
-                    data-doctor-fee="<?= $row['DoctorFee'] ?>"
-                    data-medicine-total="<?= $row['MedicineCost'] ?>"
-                    data-payment-date="<?= $row['PaymentDate'] ?>"
-                    data-receipt="<?= $row['Receipt'] ?>">
-                    Edit
-                </button>
                 
                     <a class="btn btn-delete" href="?delete=<?= $row['BillingID'] ?>" onclick="return confirm('Are you sure?')">Delete</a>
                 </td>
@@ -496,220 +766,6 @@ JOIN doctor d ON b.DoctorID = d.DoctorID;");
         <?php endwhile; ?>
     </table>
 </div>
-
-<!-- Edit Billing Modal -->
-<div id="editModal" class="modal">
-    <div class="modal-content">
-        <span class="modal-close" onclick="closeModal()">×</span>
-        <h3>Edit Billing</h3>
-
-        <form method="post" action="patient_billing.php">
-            <input type="hidden" name="billing_id" id="modal_billing_id">
-
-            <div class="modal-grid">
-                <!-- Left Column -->
-                <div>
-                    <label>Patient Name:</label>
-                    <input 
-                        list="patientList" 
-                        name="patient_id" 
-                        id="modal_patient_input"
-                        placeholder="Select Patient" 
-                        required>
-                    <datalist id="patientList">
-                        <?php
-                        $patients_result->data_seek(0);
-                        while ($p = $patients_result->fetch_assoc()) {
-                            echo "<option value='{$p['PatientID']} - " . htmlspecialchars($p['Name']) . "'>";
-                        }
-                        ?>
-                    </datalist>
-
-                    <label>Doctor Name:</label>
-                    <input 
-                        list="doctorList" 
-                        id="modal_doctor_input" 
-                        name="doctor_id" 
-                        placeholder="Select Doctor" 
-                        onchange="setDoctorFee('modal_doctor_input', 'modal_doctor_fee_display', 'modal_doctor_fee')" 
-                        required>
-                    <datalist id="doctorList">
-                        <?php
-                        $doctors_result->data_seek(0);
-                        while ($d = $doctors_result->fetch_assoc()) {
-                            echo "<option value='{$d['DoctorID']} - " . htmlspecialchars($d['DoctorName']) . "' data-fee='{$d['DoctorFee']}'>"; 
-                        }
-                        ?>
-                    </datalist>
-
-                    <label>Doctor Fee:</label>
-                    <input type="text" id="modal_doctor_fee_display" readonly placeholder="₱">
-                    <input type="hidden" name="doctor_fee" id="modal_doctor_fee" required>
-
-                    <label>Payment Date:</label>
-                    <input type="date" name="payment_date" id="modal_payment_date" required>
-
-                    <label>Receipt Number:</label>
-                    <input type="text" name="receipt" id="modal_receipt" readonly>
-                </div>
-
-                <!-- Right Column -->
-                <div>
-                    <label>Search Medicine:</label>
-                    <input 
-                        list="medicineList" 
-                        id="modal_medicine_search" 
-                        placeholder="Type to search..." 
-                        onkeydown="handleEnter(event, 'modal_selected_medicines')">
-                    <button type="button" onclick="addMedicine('modal_medicine_search', 'modal_selected_medicines')">Add</button>
-
-                    <ul id="modal_selected_medicines">
-                        <?php
-                        if (!empty($selectedMedicines)) {
-                            foreach ($selectedMedicines as $medicine) {
-                                echo "<li data-id='{$medicine['MedicineID']}' data-name='" . htmlspecialchars($medicine['MedicineName']) . "' data-price='{$medicine['Price']}'>
-                                        {$medicine['MedicineName']} - ₱{$medicine['Price']}
-                                        <button type='button' onclick='removeMedicine(this)' style='margin-left:10px;'>Remove</button>
-                                    </li>";
-                            }
-                        }
-                        ?>
-                    </ul>
-
-
-                   <button type="button" onclick="calculateTotal('selectedMedicines', 'main_medicine_cost_display', 'main_medicine_cost')">Done</button>
-
-
-                    <label>Total Medicine Cost:</label>
-                    <input type="text" id="main_medicine_cost_display" readonly>
-                    <input type="hidden" name="medicine_total" id="main_medicine_cost" required>
-
-
-                    <datalist id="medicineList">
-                        <?php
-                        $medicines_result->data_seek(0);
-                        while ($med = $medicines_result->fetch_assoc()) {
-                            echo "<option value='{$med['MedicineID']} - " . htmlspecialchars($med['MedicineName']) . "' data-price='{$med['Price']}'>";
-                        }
-                        ?>
-                    </datalist>
-                </div>
-            </div>
-
-            <button type="submit" name="update_bill" style="padding: 15px 26px; background-color: #007bff; color: white; border: none; border-radius: 5px; cursor: pointer; margin-top: 20px;">
-                Update Bill
-            </button>
-        </form>
-    </div>
-</div>
-
-
-
-
-<script>
-// Store selected medicines globally (for both add and edit)
-let selectedMedicines = [];
-let modalSelectedMedicines = [];
-
-function setDoctorFee(inputId = 'doctorSearch', displayId = 'doctorFeeDisplay', hiddenId = 'doctorFee') {
-    const doctorInput = document.getElementById(inputId);
-    const doctorList = document.getElementById('doctorList');
-    const display = document.getElementById(displayId);
-    const hidden = document.getElementById(hiddenId);
-    
-    const selected = [...doctorList.options].find(option => option.value === doctorInput.value);
-    const fee = selected ? selected.getAttribute('data-fee') : '';
-    
-    display.value = fee ? `₱${parseFloat(fee).toFixed(2)}` : '';
-    hidden.value = fee || '';
-}
-
-function handleEnter(event, ulId = 'selectedMedicines') {
-    if (event.key === 'Enter') {
-        event.preventDefault();
-        addMedicine(event.target.id, ulId);
-    }
-}
-
-function addMedicine(inputId = 'medicineSearch', ulId = 'selectedMedicines') {
-    const input = document.getElementById(inputId);
-    const list = document.getElementById('medicineList');
-    const ul = document.getElementById(ulId);
-    const value = input.value.trim();
-    
-    if (!value) return;
-
-    const selected = [...list.options].find(opt => opt.value === value);
-    if (!selected) {
-        alert("Please select a valid medicine from the list.");
-        return;
-    }
-
-    const [id] = value.split(' - ');
-    const name = selected.textContent.split(' - ')[1];
-    const price = parseFloat(selected.getAttribute('data-price'));
-
-    const medicine = { MedicineID: id, MedicineName: name, Price: price };
-
-    // Add to correct array
-    const medicineArray = (ulId === 'modal_selected_medicines') ? modalSelectedMedicines : selectedMedicines;
-    medicineArray.push(medicine);
-
-    const li = document.createElement('li');
-    li.textContent = `${medicine.MedicineName} - ₱${price.toFixed(2)}`;
-    li.dataset.id = id;
-    li.dataset.name = name;
-    li.dataset.price = price;
-    
-    const removeBtn = document.createElement('button');
-    removeBtn.textContent = 'Remove';
-    removeBtn.type = 'button';
-    removeBtn.style.marginLeft = '10px';
-    removeBtn.onclick = () => {
-        ul.removeChild(li);
-        const index = medicineArray.findIndex(m => m.MedicineID === id);
-        if (index > -1) medicineArray.splice(index, 1);
-    };
-
-    li.appendChild(removeBtn);
-    ul.appendChild(li);
-    input.value = '';
-}
-
-function calculateTotal(ulId = 'selectedMedicines', displayId = 'medicineCostDisplay', hiddenId = 'medicineCost') {
-    const medicineArray = (ulId === 'modal_selected_medicines') ? modalSelectedMedicines : selectedMedicines;
-    const total = medicineArray.reduce((sum, m) => sum + m.Price, 0);
-    document.getElementById(displayId).value = `₱${total.toFixed(2)}`;
-    document.getElementById(hiddenId).value = total.toFixed(2);
-}
-
-// Modal Logic
-function openEditModal(button) {
-    document.getElementById('editModal').style.display = 'block';
-
-    document.getElementById('modal_billing_id').value = button.dataset.billingId;
-    document.getElementById('modal_patient_input').value = button.dataset.patient;
-    document.getElementById('modal_doctor_input').value = button.dataset.doctor;
-    document.getElementById('modal_payment_date').value = button.dataset.paymentDate;
-    document.getElementById('modal_receipt').value = button.dataset.receipt;
-
-    setDoctorFee('modal_doctor_input', 'modal_doctor_fee_display', 'modal_doctor_fee');
-
-    document.getElementById('main_medicine_cost_display').value = `₱${parseFloat(button.dataset.medicineTotal).toFixed(2)}`;
-    document.getElementById('main_medicine_cost').value = parseFloat(button.dataset.medicineTotal).toFixed(2);
-
-    // Clear and reset modal medicine list
-    modalSelectedMedicines = [];
-    const ul = document.getElementById('modal_selected_medicines');
-    ul.innerHTML = '';
-}
-
-function closeModal() {
-    document.getElementById('editModal').style.display = 'none';
-}
-</script>
-
-
 
 </body>
 </html>

@@ -33,10 +33,14 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['update_schedule'])) {
 }
 
 // Fetch doctor schedules with department name
-$query = "SELECT ds.*, d.DepartmentName FROM doctorschedule ds 
-          LEFT JOIN department d ON ds.DepartmentID = d.DepartmentID";
+$query = "SELECT ds.*, d.DepartmentName, doc.DoctorName 
+          FROM doctorschedule ds 
+          LEFT JOIN department d ON ds.DepartmentID = d.DepartmentID
+          LEFT JOIN doctor doc ON ds.DoctorID = doc.DoctorID";
+
 $result = $conn->query($query);
 $schedules = $result->fetch_all(MYSQLI_ASSOC);
+
 ?>
 
 <!DOCTYPE html>
@@ -47,7 +51,7 @@ $schedules = $result->fetch_all(MYSQLI_ASSOC);
     <link rel="stylesheet" type="text/css" href="../../css/style.css">
     <style>
         body { background-color: #fff; }
-        .content { padding: 20px; }
+        .content { padding: 40px; }
         .btn {
             padding: 8px 15px;
             font-size: 14px;
@@ -124,8 +128,8 @@ $schedules = $result->fetch_all(MYSQLI_ASSOC);
         <table class="table table-bordered table-striped">
             <thead>
                 <tr>
-                    <th>ID</th>
                     <th>Doctor ID</th>
+                    <th>Doctor Name</th>
                     <th>Department</th>
                     <th>Date</th>
                     <th>Start</th>
@@ -134,11 +138,11 @@ $schedules = $result->fetch_all(MYSQLI_ASSOC);
                     <th>Action</th>
                 </tr>
             </thead>
-            <tbody>
+           <tbody>
                 <?php foreach ($schedules as $s): ?>
                     <tr>
-                        <td><?= $s['DoctorScheduleID'] ?></td>
                         <td><?= $s['DoctorID'] ?></td>
+                        <td><?= htmlspecialchars($s['DoctorName'] ?? 'N/A') ?></td>
                         <td><?= htmlspecialchars($s['DepartmentName'] ?? 'N/A') ?></td>
                         <td><?= $s['ScheduleDate'] ?></td>
                         <td><?= $s['StartTime'] ?></td>
@@ -150,6 +154,7 @@ $schedules = $result->fetch_all(MYSQLI_ASSOC);
                     </tr>
                 <?php endforeach; ?>
             </tbody>
+
         </table>
     </div>
 
@@ -164,7 +169,7 @@ $schedules = $result->fetch_all(MYSQLI_ASSOC);
                 <div class="modal-body">
                     <input type="hidden" name="DoctorScheduleID" id="edit-id">
                     
-                    <label>Doctor ID</label>
+                    <label>Doctor ID=</label>
                     <input type="number" name="DoctorID" id="edit-doctor-id" required>
 
                     <label>Department</label>

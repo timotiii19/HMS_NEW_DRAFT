@@ -126,7 +126,8 @@ $admins = getAdmins($conn, $filter);
             <td><?= $admin['superadmin'] ? 'Yes' : 'No' ?></td>
             <td>
                 <?php if ($_SESSION['UserID'] != $admin['UserID']): ?>
-                    <a href="admin.php?remove=<?= $admin['UserID'] ?>&filter=<?= $filter ?>" onclick="return confirm('Are you sure you want to remove admin rights from <?= htmlspecialchars($admin['username']) ?>? This cannot be undone.');">Remove</a>
+                   <a class="remove-link" href="admin.php?remove=<?= $admin['UserID'] ?>&filter=<?= $filter ?>" onclick="return confirm('Are you sure you want to remove admin rights from <?= htmlspecialchars($admin['username']) ?>? This cannot be undone.');">Remove</a>
+
                 <?php else: ?>
                     (You)
                 <?php endif; ?>
@@ -165,13 +166,16 @@ $admins = getAdmins($conn, $filter);
             text-align: center;
             border: 1px solid #ddd;
             white-space: nowrap;
+            color: #000000; /* Set font color to black */
         }
 
+
         .responsive-table th {
-            background-color:#f8f9fa; /* deep maroon */
-            color: white;
+            background-color: #f8f9fa;
+            color: #000000; /* Set header text to black */
             font-weight: 600;
         }
+
 
         /* Filter Buttons */
         .filter-buttons {
@@ -302,6 +306,16 @@ $admins = getAdmins($conn, $filter);
         .delete-link {
             color: #cc0000;
         }
+        .remove-link {
+            color:rgb(218, 50, 50); /* black */
+            font-weight: bold;
+        }
+
+        .remove-link:hover {
+            color: #a0223f; /* dark red/maroon on hover */
+            text-decoration: underline;
+        }
+
 
  </style>
 </body>

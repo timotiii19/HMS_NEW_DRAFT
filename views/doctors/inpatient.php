@@ -61,18 +61,70 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['action']) && $_POST['
     exit;
 }
 
-$sql = "SELECT PatientID, DoctorID, DepartmentID, ScheduleDate, EndTime FROM doctorschedule WHERE Status = 'Inpatient'";
+if ($_SERVER['REQUEST_METHOD'] === 'POST' && $_POST['action'] === 'discharge_inpatient') {
+    $inpatientId = intval($_POST['inpatientId'] ?? 0);
+
+    if (!$inpatientId) {
+        http_response_code(400);
+        echo "Invalid inpatient ID.";
+        exit;
+    }
+
+    $stmt = $conn->prepare("UPDATE inpatients SET DischargeDate = NOW() WHERE InpatientID = ? AND DischargeDate IS NULL");
+    $stmt->bind_param("i", $inpatientId);
+
+    if ($stmt->execute() && $stmt->affected_rows > 0) {
+        $dateStmt = $conn->prepare("SELECT DischargeDate FROM inpatients WHERE InpatientID = ?");
+        $dateStmt->bind_param("i", $inpatientId);
+        $dateStmt->execute();
+        $result = $dateStmt->get_result();
+        $dateRow = $result->fetch_assoc();
+        echo "success|" . $dateRow['DischargeDate'];
+        $dateStmt->close();
+    } else {
+        echo "Failed to discharge. Either already discharged or invalid ID.";
+    }
+
+    $stmt->close();
+    exit;
+}
+// AJAX handler to get patient vitals
+if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['action']) && $_POST['action'] === 'get_patient_vitals') {
+    $patientId = intval($_POST['PatientID'] ?? 0);
+
+    if (!$patientId) {
+        http_response_code(400);
+        echo json_encode(['error' => 'Invalid Patient ID']);
+        exit;
+    }
+
+    $stmt = $conn->prepare("SELECT Temperature, BloodPressure, Pulse, NurseNotes, RecordedAt FROM patientvitals WHERE PatientID = ?");
+    $stmt->bind_param("i", $patientId);
+    $stmt->execute();
+    $result = $stmt->get_result();
+    $vitals = $result->fetch_assoc();
+    $stmt->close();
+
+    if ($vitals) {
+        echo json_encode($vitals);
+    } else {
+        echo json_encode(['error' => 'No vitals found for this patient']);
+    }
+    exit;
+}
+
+
+$sql = "SELECT PatientID, DoctorID, ScheduleDate, EndTime FROM doctorschedule WHERE Status = 'Inpatient'";
 $result = $conn->query($sql);
 if ($result && $result->num_rows > 0) {
     while ($row = $result->fetch_assoc()) {
         $patientID = $row['PatientID'];
         $doctorID = $row['DoctorID'];
-        $departmentID = $row['DepartmentID'];
         $scheduleDate = $row['ScheduleDate'];
         $endTime = $row['EndTime'];
         
         // Combine date and time into a datetime string
-        $admissionDate = date('Y-m-d H:i:s', strtotime("$scheduleDate $endTime"));
+        $admissionDate = $scheduleDate . ' ' . $endTime;
 
         $check = $conn->prepare("SELECT * FROM inpatients WHERE PatientID = ? AND DoctorID = ?");
         $check->bind_param("ii", $patientID, $doctorID);
@@ -89,7 +141,13 @@ if ($result && $result->num_rows > 0) {
     }
 }
 
-$inpatients = $conn->query("SELECT * FROM inpatients ORDER BY AdmissionDate DESC");
+$inpatients = $conn->query("
+    SELECT i.*, l.LocationName 
+    FROM inpatients i
+    LEFT JOIN locations l ON i.LocationID = l.LocationID
+    ORDER BY i.AdmissionDate DESC
+");
+
 
 $locationsSql = "
     SELECT 
@@ -124,6 +182,7 @@ if ($locationsResult) {
 <meta charset="UTF-8" />
 <title>Inpatients - Assign Location</title>
 <style>
+/* Add your CSS here */
 body {
     font-family: Arial, sans-serif;
     margin: 0px;
@@ -214,18 +273,30 @@ body {
 </head>
 <body>
 <div class="content">
+    <!-- Modal for Patient Vitals -->
+<div id="vitalsModal" style="display:none; position:fixed; top:50%; left:50%; transform: translate(-50%, -50%);
+     background:white; border:1px solid #ccc; padding:20px; box-shadow: 0 0 10px rgba(0,0,0,0.3); z-index: 1000; width: 350px;">
+    <h3>Patient Vital Signs</h3>
+    <div id="vitalsContent">
+        Loading...
+    </div>
+    <button id="closeVitalsModal" style="margin-top:10px; padding:5px 10px; cursor:pointer;">Close</button>
+</div>
+
+<!-- Overlay -->
+<div id="modalOverlay" style="display:none; position:fixed; top:0; left:0; width:100%; height:100%; 
+     background:rgba(0,0,0,0.5); z-index:999;"></div>
+
 <h2>Current Inpatients</h2>
 <table class="inpatients-table">
     <thead>
         <tr>
             <th>InpatientID</th>
             <th>PatientID</th>
-            <th>DoctorID</th>
-            <th>DepartmentID</th>
             <th>AdmissionDate</th>
             <th>DischargeDate</th>
             <th>MedicalRecord</th>
-            <th>Assigned Location</th>
+            <th>Location</th>
             <th>Assign Room</th>
         </tr>
     </thead>
@@ -234,13 +305,19 @@ body {
         <tr data-inpatientid="<?= htmlspecialchars($row['InpatientID']) ?>">
             <td><?= htmlspecialchars($row['InpatientID']) ?></td>
             <td><?= htmlspecialchars($row['PatientID']) ?></td>
-            <td><?= htmlspecialchars($row['DoctorID']) ?></td>
-            <td><?= htmlspecialchars($row['DepartmentID']) ?></td>
             <td><?= htmlspecialchars($row['AdmissionDate']) ?></td>
-            <td><?= htmlspecialchars($row['DischargeDate'] ?? 'Pending') ?></td>
-            <td><?= htmlspecialchars($row['MedicalRecord'] ?? '') ?></td>
+            <td class="discharge-cell" data-inpatientid="<?= htmlspecialchars($row['InpatientID']) ?>">
+                <?php if ($row['DischargeDate']): ?>
+                    <?= htmlspecialchars($row['DischargeDate']) ?>
+                <?php else: ?>
+                    <button class="discharge-btn">Discharge</button>
+                <?php endif; ?>
+            </td>
             <td>
-                <?= $row['LocationID'] ? "ID: " . htmlspecialchars($row['LocationID']) : "Not assigned" ?>
+                <button class="view-record-btn" data-patientid="<?= htmlspecialchars($row['PatientID']) ?>">View Record</button>
+            </td>
+            <td>
+                <?= isset($row['LocationName']) && $row['LocationName'] ? " " . htmlspecialchars($row['LocationName']) : "Not assigned" ?>
             </td>
             <td>
                 <button class="assign-room-btn" data-inpatientid="<?= htmlspecialchars($row['InpatientID']) ?>">Assign Room</button>
@@ -284,7 +361,7 @@ foreach ($locations as $building => $floors) {
             echo "<td class='$statusClass'>" . ($isFull ? "Full" : "Available") . "</td>";
             echo "<td>";
             $btnDisabled = $isFull ? "disabled" : "";
-            echo "<button class='assign-room-btn' data-locationid='" . intval($room['LocationID']) . "' $btnDisabled>Assign</button>";
+            echo "<button class='assign-room-btn' data-locationid='" . intval($room['LocationName']) . "' $btnDisabled>Assign</button>";
             echo "</td>";
             echo "</tr>";
         }
@@ -294,112 +371,141 @@ foreach ($locations as $building => $floors) {
     echo "</div>";
 }
 ?>
+
 </div>
 
 <script>
-document.addEventListener("DOMContentLoaded", () => {
-    const tabs = document.querySelectorAll('.tab');
-    const floorsContainer = document.getElementById('floorsContainer');
-    let selectedInpatientId = null;
 
-    tabs.forEach(tab => {
-        tab.addEventListener('click', () => {
-            tabs.forEach(t => t.classList.remove('active'));
-            tab.classList.add('active');
+// Modal elements
+const vitalsModal = document.getElementById('vitalsModal');
+const vitalsContent = document.getElementById('vitalsContent');
+const modalOverlay = document.getElementById('modalOverlay');
+const closeVitalsModalBtn = document.getElementById('closeVitalsModal');
 
-            const building = tab.getAttribute('data-building');
-            [...floorsContainer.children].forEach(div => {
-                div.style.display = (div.getAttribute('data-building') === building) ? '' : 'none';
-            });
-        });
+// Open modal function
+// Open modal function
+function openVitalsModal(patientId) {
+    vitalsContent.textContent = "Loading...";
+    vitalsModal.style.display = 'block';
+    modalOverlay.style.display = 'block';
+
+    fetch("", {
+        method: "POST",
+        headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
+        body: `action=get_patient_vitals&patientId=${encodeURIComponent(patientId)}`
+    })
+    .then(response => response.json())
+    .then(data => {
+        if (data.error) {
+            vitalsContent.innerHTML = `<p style="color:red;">${data.error}</p>`;
+        } else {
+            vitalsContent.innerHTML = `
+                <p><strong>Temperature:</strong> ${data.Temperature} °C</p>
+                <p><strong>Blood Pressure:</strong> ${data.BloodPressure} mmHg</p>
+                <p><strong>Pulse:</strong> ${data.Pulse} bpm</p>
+                <p><strong>Nurse Notes:</strong> ${data.NurseNotes}</p>
+                <p><strong>Recorded At:</strong> ${data.RecordedAt}</p>
+            `;
+        }
+    })
+    .catch(error => {
+        console.error("Error fetching vitals:", error);
+        vitalsContent.innerHTML = `<p style="color:red;">Error fetching vitals data.</p>`;
     });
+}
 
-    document.querySelectorAll('.inpatients-table .assign-room-btn').forEach(btn => {
-        btn.addEventListener('click', () => {
-            selectedInpatientId = btn.getAttribute('data-inpatientid');
-            alert("Select a room from below to assign to Inpatient ID: " + selectedInpatientId);
-        });
+
+// Close modal
+closeVitalsModalBtn.addEventListener('click', () => {
+    vitalsModal.style.display = 'none';
+    modalOverlay.style.display = 'none';
+});
+
+// View patient record button
+document.querySelectorAll('.view-record-btn').forEach(button => {
+    button.addEventListener('click', () => {
+        const patientId = button.getAttribute('data-patientid');
+        openVitalsModal(patientId);
     });
+});
 
-    floorsContainer.querySelectorAll('.assign-room-btn').forEach(btn => {
-        btn.addEventListener('click', () => {
-            if (!selectedInpatientId) {
-                alert("Please select an inpatient first by clicking 'Assign Room' next to their name.");
-                return;
-            }
 
-            const locationId = btn.getAttribute('data-locationid');
-            if (!locationId) {
-                alert("Invalid room selection.");
-                return;
-            }
+// Discharge button
+document.querySelectorAll('.discharge-btn').forEach(button => {
+    button.addEventListener('click', () => {
+        const row = button.closest('tr');
+        const inpatientId = row.getAttribute('data-inpatientid');
 
-            btn.disabled = true;
-            btn.textContent = "Assigning...";
-
+        if (confirm("Are you sure you want to discharge this patient?")) {
             fetch("", {
                 method: "POST",
-                headers: {'Content-Type': 'application/x-www-form-urlencoded'},
-                body: `action=assign_location&inpatientId=${encodeURIComponent(selectedInpatientId)}&locationId=${encodeURIComponent(locationId)}`
+                headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
+                body: `action=discharge_inpatient&inpatientId=${inpatientId}`
             })
             .then(response => response.text())
-            .then(text => {
-                if (text.trim() === "success") {
-                    alert("Location assigned successfully.");
-
-                    const rows = floorsContainer.querySelectorAll('tr');
-                    rows.forEach(row => {
-                        const assignBtn = row.querySelector('.assign-room-btn');
-                        if (assignBtn && assignBtn.getAttribute('data-locationid') === locationId) {
-                            let occupiedCell = row.cells[3];
-                            let capacityCell = row.cells[2];
-                            let statusCell = row.cells[4];
-
-                            let occupied = parseInt(occupiedCell.textContent);
-                            let capacity = parseInt(capacityCell.textContent);
-
-                            occupied += 1;
-                            occupiedCell.textContent = occupied;
-
-                            if (occupied >= capacity) {
-                                statusCell.textContent = "Full";
-                                statusCell.classList.remove('room-available');
-                                statusCell.classList.add('room-full');
-
-                                assignBtn.disabled = true;
-                                assignBtn.textContent = "Full";
-                            } else {
-                                statusCell.textContent = "Available";
-                                statusCell.classList.remove('room-full');
-                                statusCell.classList.add('room-available');
-
-                                assignBtn.disabled = false;
-                                assignBtn.textContent = "Assign";
-                            }
-                        }
-                    });
-
-                    const inpatientRow = document.querySelector(`.inpatients-table tr[data-inpatientid="${selectedInpatientId}"]`);
-                    if (inpatientRow) {
-                        inpatientRow.cells[7].textContent = `ID: ${locationId}`;
-                    }
-
-                    selectedInpatientId = null;
+            .then(result => {
+                if (result.startsWith("success|")) {
+                    const dischargeDate = result.split("|")[1];
+                    row.querySelector(".discharge-cell").innerHTML = dischargeDate;
                 } else {
-                    alert("Error assigning location: " + text);
-                    btn.disabled = false;
-                    btn.textContent = "Assign";
+                    alert(result);
                 }
-            })
-            .catch(err => {
-                alert("Error: " + err);
-                btn.disabled = false;
-                btn.textContent = "Assign";
             });
+        }
+    });
+});
+
+// Assign room from inpatients table
+let selectedInpatientId = null;
+
+document.querySelectorAll('.assign-room-btn[data-inpatientid]').forEach(button => {
+    button.addEventListener('click', () => {
+        selectedInpatientId = button.getAttribute('data-inpatientid');
+        alert("Now scroll down and click on the desired room to assign.");
+    });
+});
+
+// Assign room from room list
+document.querySelectorAll('.assign-room-btn[data-locationid]').forEach(button => {
+    button.addEventListener('click', () => {
+        const locationId = button.getAttribute('data-locationid');
+        if (!selectedInpatientId) {
+            alert("Please select an inpatient first from the top table.");
+            return;
+        }
+
+        if (confirm("Assign this room to the selected inpatient?")) {
+            fetch("", {
+                method: "POST",
+                headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
+                body: `action=assign_location&inpatientId=${selectedInpatientId}&locationId=${locationId}`
+            })
+            .then(response => response.text())
+            .then(result => {
+                if (result.trim() === "success") {
+                    alert("Room assigned successfully!");
+                    location.reload(); // reload to reflect updated data
+                } else {
+                    alert("Error: " + result);
+                }
+            });
+        }
+    });
+});
+
+// Building tab switching
+document.querySelectorAll(".tab").forEach(tab => {
+    tab.addEventListener('click', () => {
+        const selectedBuilding = tab.getAttribute('data-building');
+
+        document.querySelectorAll(".tab").forEach(t => t.classList.remove('active'));
+        tab.classList.add('active');
+
+        document.querySelectorAll(".building-floors").forEach(floorDiv => {
+            floorDiv.style.display = floorDiv.getAttribute('data-building') === selectedBuilding ? 'block' : 'none';
         });
     });
 });
 </script>
-
 </body>
 </html>

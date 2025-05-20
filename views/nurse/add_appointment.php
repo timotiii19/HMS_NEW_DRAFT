@@ -29,10 +29,6 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
 
     $stmt->close();
 }
-
-//include('../../includes/nurse_header.php');
-//include('../../includes/nurse_sidebar.php');
-
 ?>
 
 <!DOCTYPE html>
@@ -42,7 +38,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
     <style>
         body {
             font-family: Arial, sans-serif;
-            padding: 0px;
+            padding: 30px;
             background-color: #f8f9fa;
         }
 
@@ -161,7 +157,8 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
             </select>
 
             <label for="appointment_date">Appointment Date:</label>
-            <input type="date" name="appointment_date" id="appointment_date" required>
+            <input type="date" name="appointment_date" id="appointment_date" min="<?= date('Y-m-d'); ?>" required>
+
 
             <label for="appointment_time">Appointment Time:</label>
             <input type="time" name="appointment_time" id="appointment_time" required>

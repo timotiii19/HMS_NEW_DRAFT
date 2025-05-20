@@ -6,7 +6,7 @@ include('../../config/db.php');
 
 $pharmacistName = "Unknown";
 
-if (isset($_SESSION['role']) && $_SESSION['role'] === 'pharmacist' && isset($_SESSION['role_id'])) {
+if (isset($_SESSION['role']) && $_SESSION['role'] === 'Pharmacist' && isset($_SESSION['role_id'])) {
     $pharmacistID = $_SESSION['role_id'];
 
     $query = "SELECT Name FROM pharmacist WHERE PharmacistID = ?";
@@ -130,7 +130,7 @@ if (isset($_SESSION['role']) && $_SESSION['role'] === 'pharmacist' && isset($_SE
 <div class="header">
     <div class="left-section">
         <img src="../../images/hosplogo.png" alt="Logo" class="logo">
-        <i class="fas fa-bars menu-icon"></i>
+        
     </div>
 
     <div class="right-section">

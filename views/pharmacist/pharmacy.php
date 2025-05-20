@@ -4,8 +4,7 @@ if (!isset($_SESSION['username']) || $_SESSION['role'] != 'Pharmacist') {
     header("Location: ../../auth/pharmacist_login.php");
     exit();
 }
-include('../../includes/pharmacist_sidebar.php');
-include('../../includes/pharmacist_header.php');
+
 include('../../config/db.php');
 
 $pharmacistID = $_SESSION['role_id'];
@@ -39,6 +38,8 @@ if (isset($_GET['delete'])) {
     header("Location: pharmacy.php");
     exit();
 }
+include('../../includes/pharmacist_sidebar.php');
+include('../../includes/pharmacist_header.php');
 ?>
 
 <!DOCTYPE html>
@@ -49,7 +50,7 @@ if (isset($_GET['delete'])) {
     <style>
         a.delete-btn {
             color: white;
-            background-color: #dc3545;
+            background-color:rgba(220, 53, 70, 0.64);
             padding: 8px 16px;
             border-radius: 6px;
             text-decoration: none;
@@ -62,7 +63,7 @@ if (isset($_GET['delete'])) {
 
         .update-btn {
             color: white;
-            background-color: #6c757d;
+            background-color:rgba(0, 255, 123, 0.6);;
             padding: 8px 16px;
             border: none;
             border-radius: 6px;
@@ -72,7 +73,7 @@ if (isset($_GET['delete'])) {
         }
 
         .update-btn:hover {
-            background-color: #5a6268;
+            background-color:rgb(0, 255, 123);
         }
 
         input[type="number"]::-webkit-outer-spin-button,
@@ -177,7 +178,8 @@ if (isset($_GET['delete'])) {
     }
 
     th {
-        background-color: #f8f9fa;
+        background-color:rgb(156, 17, 17);
+        color:rgb(255, 255, 255);
     }
 
     form input, form button {

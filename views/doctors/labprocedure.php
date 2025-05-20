@@ -1,166 +1,198 @@
 <?php
 session_start();
+if (!isset($_SESSION['username']) || $_SESSION['role'] != 'Doctor') {
+    header("Location: ../../auth/doctor_login.php");
+    exit();
+}
+
 include('../../includes/doctor_header.php');
 include('../../includes/doctor_sidebar.php');
 include('../../config/db.php');
 
-// Fetch procedures from database
+date_default_timezone_set('Asia/Manila'); 
+
+$doctor_name = $_SESSION['username'];
+$doctorID = $_SESSION['role_id'] ?? null;
+
+$hour = date('H');
+if ($hour < 12) {
+    $greet = "Good Morning";
+} elseif ($hour < 18) {
+    $greet = "Good Afternoon";
+} else {
+    $greet = "Good Evening";
+}
+
+// Fetch procedures
 $query = "SELECT * FROM labprocedure";
 $result = mysqli_query($conn, $query);
-$procedures = mysqli_fetch_all($result, MYSQLI_ASSOC);
-if (isset($_SESSION['role']) && $_SESSION['role'] === 'Doctor' && isset($_SESSION['role_id'])) {
-    $doctorID = $_SESSION['role_id'];
-}
-if (!$procedures) {
-    echo "Error fetching data: " . mysqli_error($conn);
-}
+$procedures = $result ? mysqli_fetch_all($result, MYSQLI_ASSOC) : [];
 ?>
-
 <!DOCTYPE html>
 <html lang="en">
 <head>
     <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Lab Procedures</title>
-    <link rel="stylesheet" href="/css/bootstrap.min.css">
+    <link rel="stylesheet" href="../../css/style.css">
     <style>
         body {
-            background-color: #f8f9fa;
-            padding-top: 60px;
+            font-family: Arial, sans-serif;
+            background-color: #ffffff;
+            margin: 0;
+            padding: 0;
         }
 
-        .main-content {
+        .content {
+            padding: 40px;
+            margin-top: 40px;
             margin-left: 220px;
-            padding: 40px 30px;
+            width: calc(100% - 220px);
+            box-sizing: border-box;
         }
 
-        .main-box {
-            background-color: white;
+        h3, h4 {
+            color: #730000;
+        }
+
+        .card-box {
+            background-color: #fff;
             padding: 30px;
-            border-radius: 10px;
-            box-shadow: 0 4px 6px rgba(0,0,0,0.1);
-        }
-
-        h1 {
-            color: #343a40;
-        }
-
-        h2 {
-            color: white;
-        }
-
-        .form-section {
+            border-radius: 15px;
+            border: 6px solid #c34b4b;
+            box-shadow: 8px 8px 0px #e58585;
             margin-bottom: 40px;
         }
 
-        .btn {
-            padding: 10px 16px;
+        .form-label {
+            font-weight: bold;
         }
 
-        .btn-primary {
-            background-color: #007bff;
-            border-color: #007bff;
+        .btn-submit {
+            background-color: #c34b4b;
+            color: white;
+            border: none;
+            padding: 12px;
+            width: 100%;
+            border-radius: 10px;
+            font-weight: bold;
+            transition: background-color 0.3s ease;
         }
 
-        .btn-primary:hover {
-            background-color: #0056b3;
+        .btn-submit:hover {
+            background-color: #a42c2c;
         }
 
-        .table th, .table td {
-            vertical-align: middle;
+        input[type="text"], input[type="number"], input[type="date"], input[type="datetime-local"] {
+            width: 100%;
+            padding: 10px;
+            border-radius: 8px;
+            border: 2px solid #ccc;
+            box-sizing: border-box;
+            margin-bottom: 15px;
         }
 
-        @media (max-width: 768px) {
-            .main-content {
-                margin-left: 0;
-                padding: 20px;
-            }
+        .form-row {
+            display: flex;
+            flex-wrap: wrap;
+            gap: 20px;
         }
+
+        .form-group {
+            flex: 1;
+            min-width: 220px;
+        }
+
+        table {
+            width: 100%;
+            border-collapse: collapse;
+            margin-top: 30px;
+        }
+
+        table th, table td {
+            border: 1px solid #ddd;
+            padding: 10px;
+            text-align: center;
+        }
+
+        table th {
+            background-color: #f5bebe;
+            color: #730000;
+        }
+        .subtitle {
+        font-size: 18px;
+        color: #a42c2c;
+        font-weight: bold;
+        margin-top: 10px;
+        margin-bottom: 30px;
+    }
+
     </style>
 </head>
 <body>
 
-<div class="main-content">
-    <div class="main-box">
-        <h1 class="text-center mb-4">Lab Procedures</h1>
+<div class="content">
+    <h3><?php echo $greet . ", Dr. " . htmlspecialchars($doctor_name); ?>!</h3>
+    <p class="subtitle">Manage Lab Procedures below:</p>
 
-        <!-- Add New Lab Procedure Form -->
-        <div class="card form-section">
-            <div class="card-header bg-primary text-white">
-                <h4 class="mb-0">Add New Lab Procedure</h4>
+    <div class="card-box">
+        <h4>Add New Lab Procedure</h4>
+        <form method="POST" action="/labprocedure/store">
+            <div class="form-row">
+                <div class="form-group">
+                    <label class="form-label" for="PatientID">Patient ID</label>
+                    <input type="number" name="PatientID" id="PatientID" required>
+                </div>
+                <div class="form-group">
+                    <label class="form-label" for="DoctorID">Doctor ID</label>
+                    <input type="number" name="DoctorID" id="DoctorID" value="<?= htmlspecialchars($doctorID); ?>" required>
+                </div>
+                <div class="form-group">
+                    <label class="form-label" for="TestDate">Test Date & Time</label>
+                    <input type="datetime-local" name="TestDate" id="TestDate" required>
+                </div>
+                <div class="form-group">
+                    <label class="form-label" for="Result">Test Result</label>
+                    <input type="text" name="Result" id="Result" required>
+                </div>
+                <div class="form-group">
+                    <label class="form-label" for="DateReleased">Date Released</label>
+                    <input type="date" name="DateReleased" id="DateReleased" required>
+                </div>
             </div>
-            <div class="card-body">
-                <form method="POST" action="/labprocedure/store">
-                    <div class="row g-3">
-                        <div class="col-md-4">
-                            <label for="PatientID" class="form-label">Patient ID</label>
-                            <input type="number" name="PatientID" id="PatientID" class="form-control" placeholder="Enter Patient ID" required>
-                        </div>
-                        <div class="col-md-4">
-                            <label for="DoctorID" class="form-label">Doctor ID</label>
-                            <input type="number" name="DoctorID" id="DoctorID" class="form-control" placeholder="Enter Doctor ID" required>
-                        </div>
-                        <div class="col-md-4">
-                            <label for="TestDate" class="form-label">Test Date & Time</label>
-                            <input type="datetime-local" name="TestDate" id="TestDate" class="form-control" required>
-                        </div>
-                        <div class="col-md-6">
-                            <label for="Result" class="form-label">Test Result</label>
-                            <input type="text" name="Result" id="Result" class="form-control" placeholder="Enter Result" required>
-                        </div>
-                        <div class="col-md-6">
-                            <label for="DateReleased" class="form-label">Date Released</label>
-                            <input type="date" name="DateReleased" id="DateReleased" class="form-control" required>
-                        </div>
-                        <div class="col-12">
-                            <button class="btn btn-primary w-100" type="submit">Submit Procedure</button>
-                        </div>
-                    </div>
-                </form>
-            </div>
-        </div>
-
-        <!-- Edit Lab Procedure Form -->
-        <?php if (isset($editProcedure)): ?>
-        <div class="card form-section">
-            <div class="card-header bg-warning text-dark">
-                <h4 class="mb-0">Edit Lab Procedure</h4>
-            </div>
-            <div class="card-body">
-                <form method="POST" action="/labprocedure/update">
-                    <input type="hidden" name="ProcedureID" value="<?= $editProcedure['ProcedureID']; ?>">
-                    <div class="row g-3">
-                        <div class="col-md-4">
-                            <label for="PatientID" class="form-label">Patient ID</label>
-                            <input type="number" name="PatientID" id="PatientID" class="form-control" value="<?= $editProcedure['PatientID']; ?>" required>
-                        </div>
-                        <div class="col-md-4">
-                            <label for="DoctorID" class="form-label">Doctor ID</label>
-                            <input type="number" name="DoctorID" id="DoctorID" class="form-control" value="<?= $editProcedure['DoctorID']; ?>" required>
-                        </div>
-                        <div class="col-md-4">
-                            <label for="TestDate" class="form-label">Test Date & Time</label>
-                            <input type="datetime-local" name="TestDate" id="TestDate" class="form-control" value="<?= date('Y-m-d\TH:i', strtotime($editProcedure['TestDate'])); ?>" required>
-                        </div>
-                        <div class="col-md-6">
-                            <label for="Result" class="form-label">Test Result</label>
-                            <input type="text" name="Result" id="Result" class="form-control" value="<?= $editProcedure['Result']; ?>" required>
-                        </div>
-                        <div class="col-md-6">
-                            <label for="DateReleased" class="form-label">Date Released</label>
-                            <input type="date" name="DateReleased" id="DateReleased" class="form-control" value="<?= $editProcedure['DateReleased']; ?>" required>
-                        </div>
-                        <div class="col-12">
-                            <button class="btn btn-warning w-100" type="submit">Update Procedure</button>
-                        </div>
-                    </div>
-                </form>
-            </div>
-        </div>
-        <?php endif; ?>
+            <button class="btn-submit" type="submit">Submit Procedure</button>
+        </form>
     </div>
+
+    <?php if (!empty($procedures)): ?>
+        <div class="card-box">
+            <h4>Existing Lab Procedures</h4>
+            <table>
+                <thead>
+                    <tr>
+                        <th>Procedure ID</th>
+                        <th>Patient ID</th>
+                        <th>Doctor ID</th>
+                        <th>Test Date</th>
+                        <th>Result</th>
+                        <th>Date Released</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    <?php foreach ($procedures as $proc): ?>
+                        <tr>
+                            <td><?= htmlspecialchars($proc['ProcedureID']); ?></td>
+                            <td><?= htmlspecialchars($proc['PatientID']); ?></td>
+                            <td><?= htmlspecialchars($proc['DoctorID']); ?></td>
+                            <td><?= htmlspecialchars($proc['TestDate']); ?></td>
+                            <td><?= htmlspecialchars($proc['Result']); ?></td>
+                            <td><?= htmlspecialchars($proc['DateReleased']); ?></td>
+                        </tr>
+                    <?php endforeach; ?>
+                </tbody>
+            </table>
+        </div>
+    <?php endif; ?>
 </div>
 
-<script src="/js/bootstrap.bundle.min.js"></script>
 </body>
 </html>

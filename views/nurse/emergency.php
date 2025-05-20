@@ -1,11 +1,10 @@
 <?php
 session_start();
 if (!isset($_SESSION['username']) || $_SESSION['role'] != 'Nurse') {
-    header("Location: ../../auth/nurse_login.php");
+    header("Location: ../../auth/login.php");
     exit();
 }
-include('../../includes/nurse_header.php');
-include('../../includes/nurse_sidebar.php');
+
 include('../../config/db.php');
 
 // Insert emergency entry
@@ -31,6 +30,8 @@ $emergencies = $conn->query("
     JOIN patients p ON e.PatientID = p.PatientID
     ORDER BY e.LoggedAt DESC
 ");
+include('../../includes/nurse_header.php');
+include('../../includes/nurse_sidebar.php');
 ?>
 
 <!DOCTYPE html>
@@ -41,10 +42,16 @@ $emergencies = $conn->query("
     <link rel="stylesheet" type="text/css" href="../../css/style.css">
     <style>
         body {
-            background-color:rgb(255, 255, 255); /* Light background color */
-        }  
-        .content {
+            background-color:rgb(255, 255, 255);
+            font-family: Arial, sans-serif;
+        }
+        .container {
+            max-width: 800px;
+            margin: 0 auto;
             padding: 20px;
+        }
+        .content {
+            padding: 40px;
         }
 
         form {

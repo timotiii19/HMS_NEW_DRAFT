@@ -15,9 +15,9 @@ $outpatients = $conn->prepare("
     FROM outpatients o
     JOIN patients p ON o.PatientID = p.PatientID
     LEFT JOIN patientvitals v ON o.PatientID = v.patientID
-    WHERE p.AssignedNurseID = ?
+    
 ");
-$outpatients->bind_param("i", $nurseID);
+
 $outpatients->execute();
 $result = $outpatients->get_result();
 
@@ -28,23 +28,27 @@ if (isset($_POST['update_outpatient'])) {
     $pulse = $_POST['pulse'] / 4;
     $nurse_notes = $_POST['nurse_notes'];
 
+    // Check if vitals already exist for this patient
     $check = $conn->prepare("SELECT patientID FROM patientvitals WHERE patientID = ?");
     $check->bind_param("i", $patient_id);
     $check->execute();
     $check->store_result();
 
     if ($check->num_rows > 0) {
-        $stmt = $conn->prepare("UPDATE patientvitals SET Temperature = ?, BloodPressure = ?, Pulse = ?, NurseNotes = ? WHERE patientID = ?");
-        $stmt->bind_param("ssssi", $temperature, $bloodpressure, $pulse, $nurse_notes, $patient_id);
+        // UPDATE with nurse ID
+        $stmt = $conn->prepare("UPDATE patientvitals SET Temperature = ?, BloodPressure = ?, Pulse = ?, NurseNotes = ?, AssignedNurseID = ? WHERE patientID = ?");
+        $stmt->bind_param("ssssii", $temperature, $bloodpressure, $pulse, $nurse_notes, $nurseID, $patient_id);
     } else {
-        $stmt = $conn->prepare("INSERT INTO patientvitals (patientID, Temperature, BloodPressure, Pulse, NurseNotes) VALUES (?, ?, ?, ?, ?)");
-        $stmt->bind_param("issss", $patient_id, $temperature, $bloodpressure, $pulse, $nurse_notes);
+        // INSERT with nurse ID
+        $stmt = $conn->prepare("INSERT INTO patientvitals (patientID, Temperature, BloodPressure, Pulse, NurseNotes, AssignedNurseID) VALUES (?, ?, ?, ?, ?, ?)");
+        $stmt->bind_param("issssi", $patient_id, $temperature, $bloodpressure, $pulse, $nurse_notes, $nurseID);
     }
 
     $stmt->execute();
     header("Location: outpatient.php");
     exit();
 }
+
 
 include('../../includes/nurse_header.php');
 include('../../includes/nurse_sidebar.php');

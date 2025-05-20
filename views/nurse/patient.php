@@ -3,224 +3,137 @@ session_start();
 include('../../includes/nurse_header.php');
 include('../../includes/nurse_sidebar.php');
 
-// Ensure the nurse is logged in
 if (!isset($_SESSION['username']) || $_SESSION['role'] != 'Nurse') {
-    header("Location: ../../auth/nurse_login.php");
+    header("Location: ../../auth/login.php");
     exit();
 }
 
 include('../../config/db.php');
 
-// Query to fetch all patients with patient type and nurse name
-$query = "SELECT p.*, 
-                 i.PatientID AS inpatient_id,
-                 o.PatientID AS outpatient_id,
-                 CASE 
-                    WHEN i.PatientID IS NOT NULL THEN 'Inpatient'
-                    WHEN o.PatientID IS NOT NULL THEN 'Outpatient'
-                    ELSE 'Unknown'
-                 END AS PatientType,
-                 n.Name AS NurseName
-          FROM patients p
-          LEFT JOIN inpatients i ON p.PatientID = i.PatientID
-          LEFT JOIN outpatients o ON p.PatientID = o.PatientID
-          LEFT JOIN nurse n ON p.AssignedNurseID = n.NurseID";
+// Updated query: fetch latest vitals and nurse name
+$query = "
+    SELECT p.*, 
+           i.PatientID AS inpatient_id,
+           o.PatientID AS outpatient_id,
+           CASE 
+               WHEN i.PatientID IS NOT NULL THEN 'Inpatient'
+               WHEN o.PatientID IS NOT NULL THEN 'Outpatient'
+               ELSE 'Unknown'
+           END AS PatientType,
+           v.Temperature,
+           v.BloodPressure,
+           v.Pulse,
+           n.Name AS LastUpdatedNurseName
+    FROM patients p
+    LEFT JOIN inpatients i ON p.PatientID = i.PatientID
+    LEFT JOIN outpatients o ON p.PatientID = o.PatientID
+    LEFT JOIN (
+        SELECT pv1.*
+        FROM patientvitals pv1
+        INNER JOIN (
+            SELECT PatientID, MAX(RecordedAt) AS Latest
+            FROM patientvitals
+            GROUP BY PatientID
+        ) pv2 ON pv1.PatientID = pv2.PatientID AND pv1.RecordedAt = pv2.Latest
+    ) v ON p.PatientID = v.PatientID
+    LEFT JOIN nurse n ON v.NurseID = n.NurseID
+    ORDER BY p.Name ASC
+";
 
 $result = $conn->query($query);
-
-if ($result->num_rows > 0) {
-    $patients = $result->fetch_all(MYSQLI_ASSOC);
-} else {
-    $patients = [];
-}
-
-// Handle vital signs update
-if (isset($_POST['update_patient'])) {
-    $patient_id = $_POST['patient_id'];
-    $vital_signs = $_POST['vital_signs'];
-    $stmt = $conn->prepare("UPDATE patients SET VitalSigns = ? WHERE PatientID = ?");
-    $stmt->bind_param("si", $vital_signs, $patient_id);
-    $stmt->execute();
-    header("Location: patient.php");
-    exit();
-}
+$patients = ($result && $result->num_rows > 0) ? $result->fetch_all(MYSQLI_ASSOC) : [];
 ?>
 
 <!DOCTYPE html>
 <html lang="en">
 <head>
     <meta charset="UTF-8" />
-    <title>Patient Management</title>
+    <title>View Patients</title>
     <link rel="stylesheet" href="../../css/style.css" />
     <style>
-        body {
-            font-family: Arial, sans-serif;
-            background-color: #ffffff;
-        }
-
-        .content {
-            padding: 40px;
-        }
-
-        table {
-            width: 100%;
-            border-collapse: collapse;
-            margin-top: 20px;
-        }
-
-        th, td {
-            padding: 10px;
-            text-align: center;
-            border: 1px solid #ddd;
-        }
-
-        th {
-            background-color: #f8f9fa;
-        }
-
-        form input, form button {
-            padding: 5px 10px;
-            margin-top: 5px;
-        }
-
+        body { font-family: Arial, sans-serif; background-color: #ffffff; }
+        .content { padding: 40px; }
+        table { width: 100%; border-collapse: collapse; margin-top: 20px; }
+        th, td { padding: 10px; text-align: center; border: 1px solid #ddd; }
+        th { background-color: #f8f9fa; }
         button.view-btn {
-            background-color: #6f42c1;
-            color: white;
-            border: none;
-            border-radius: 6px;
-            padding: 8px 16px;
-            cursor: pointer;
+            background-color: #6f42c1; color: white; border: none;
+            border-radius: 6px; padding: 8px 16px; cursor: pointer;
         }
-
-        button.view-btn:hover {
-            background-color: #512da8;
-        }
-
+        button.view-btn:hover { background-color: #512da8; }
         .modal {
-            position: fixed;
-            z-index: 999;
-            left: 0; top: 0;
-            width: 100%; height: 100%;
-            overflow: auto;
-            background-color: rgba(0,0,0,0.5);
-            display: none;
-            justify-content: center;
-            align-items: center;
+            position: fixed; z-index: 999; left: 0; top: 0;
+            width: 100%; height: 100%; overflow: auto;
+            background-color: rgba(0,0,0,0.5); display: none;
+            justify-content: center; align-items: center;
         }
-
         .modal-content {
-            border: 2px solid purple;
-            border-radius: 12px;
-            padding: 40px;
-            background-color: #fff;
-            max-width: 500px;
-            width: 90%;
-            text-align: center;
-            box-shadow: 0 0 12px rgba(0,0,0,0.05);
-            position: relative;
+            border: 2px solid purple; border-radius: 12px;
+            padding: 40px; background-color: #fff;
+            max-width: 500px; width: 90%; text-align: center;
+            box-shadow: 0 0 12px rgba(0,0,0,0.05); position: relative;
         }
-
         .close {
-            position: absolute;
-            top: 15px;
-            right: 20px;
-            font-size: 28px;
-            font-weight: bold;
-            color: #888;
-            cursor: pointer;
+            position: absolute; top: 15px; right: 20px;
+            font-size: 28px; font-weight: bold;
+            color: #888; cursor: pointer;
         }
-
-        .close:hover {
-            color: #000;
-        }
-
+        .close:hover { color: #000; }
         .profile-img {
-            width: 100px;
-            height: 100px;
-            margin: 0 auto 30px;
-            border-radius: 50%;
-            background-color: #f0f0f0;
-            display: flex;
-            justify-content: center;
-            align-items: center;
+            width: 100px; height: 100px; margin: 0 auto 30px;
+            border-radius: 50%; background-color: #f0f0f0;
+            display: flex; justify-content: center; align-items: center;
         }
-
-        .profile-img img {
-            width: 60px;
-            height: 60px;
-        }
-
+        .profile-img img { width: 60px; height: 60px; }
         .info-row {
-            display: flex;
-            justify-content: space-between;
-            margin: 12px 0;
-            font-size: 16px;
-            color: #555;
+            display: flex; justify-content: space-between;
+            margin: 12px 0; font-size: 16px; color: #555;
         }
-
-        .info-row strong {
-            font-weight: 600;
-            color: #444;
-        }
-
-        .back-link {
-            display: inline-block;
-            margin-top: 30px;
-            text-decoration: none;
-            color: #fff;
-            background-color: #6f42c1;
-            padding: 10px 20px;
-            border-radius: 6px;
-            font-size: 14px;
-        }
-
-        .back-link:hover {
-            background-color: #512da8;
-        }
+        .info-row strong { font-weight: 600; color: #444; }
     </style>
 </head>
 <body>
 
 <div class="content">
-    <h2>Patient Management</h2>
+    <h2>Patients List</h2>
 
     <table>
         <thead>
             <tr>
                 <th>Patient ID</th>
                 <th>Name</th>
-                <th>Vital Signs</th>
+                <th>Temperature (°C)</th>
+                <th>Blood Pressure</th>
+                <th>Pulse (bpm)</th>
                 <th>Patient Type</th>
-                <th>Assigned Nurse</th>
+                <th>Nurse</th>
                 <th>Action</th>
             </tr>
         </thead>
         <tbody>
             <?php if (count($patients) === 0): ?>
-                <tr><td colspan="6" style='text-align: center; font-style: italic; color: #666;'>No patients found.</td></tr>
+                <tr><td colspan="8" style='text-align: center; font-style: italic; color: #666;'>No patients found.</td></tr>
             <?php else: ?>
                 <?php foreach ($patients as $patient): ?>
                     <tr>
                         <td><?= htmlspecialchars($patient['PatientID']) ?></td>
                         <td><?= htmlspecialchars($patient['Name']) ?></td>
-                        <td>
-                            <form method="POST" style="margin:0;">
-                                <input type="text" name="vital_signs" value="<?= htmlspecialchars($patient['VitalSigns'] ?? 'Not Recorded') ?>" required>
-                                <input type="hidden" name="patient_id" value="<?= htmlspecialchars($patient['PatientID']) ?>">
-                                <button type="submit" name="update_patient">Update</button>
-                            </form>
-                        </td>
+                        <td><?= htmlspecialchars($patient['Temperature'] ?? 'N/A') ?></td>
+                        <td><?= htmlspecialchars($patient['BloodPressure'] ?? 'N/A') ?></td>
+                        <td><?= htmlspecialchars($patient['Pulse'] ?? 'N/A') ?></td>
                         <td><?= htmlspecialchars($patient['PatientType']) ?></td>
-                        <td><?= htmlspecialchars($patient['NurseName'] ?? 'Unassigned') ?></td>
+                        <td><?= htmlspecialchars($patient['LastUpdatedNurseName'] ?? '-') ?></td>
                         <td>
                             <button class="view-btn" 
                                 onclick="openModal(
                                     '<?= htmlspecialchars($patient['PatientID']) ?>',
                                     '<?= htmlspecialchars($patient['Name']) ?>',
                                     '<?= htmlspecialchars($patient['Sex']) ?>',
-                                    '<?= htmlspecialchars($patient['VitalSigns'] ?? 'Not Recorded') ?>',
+                                    '<?= htmlspecialchars($patient['Temperature'] ?? 'N/A') ?>',
+                                    '<?= htmlspecialchars($patient['BloodPressure'] ?? 'N/A') ?>',
+                                    '<?= htmlspecialchars($patient['Pulse'] ?? 'N/A') ?>',
                                     '<?= htmlspecialchars($patient['PatientType']) ?>',
-                                    '<?= htmlspecialchars($patient['NurseName'] ?? 'Unassigned') ?>'
+                                    '<?= htmlspecialchars($patient['LastUpdatedNurseName'] ?? '-') ?>'
                                 )">View Details</button>
                         </td>
                     </tr>
@@ -242,28 +155,36 @@ if (isset($_POST['update_patient'])) {
         <div class="info-row"><strong>Patient ID:</strong> <span id="modalPatientID"></span></div>
         <div class="info-row"><strong>Name:</strong> <span id="modalName"></span></div>
         <div class="info-row"><strong>Gender:</strong> <span id="modalGender"></span></div>
-        <div class="info-row"><strong>Vital Sign:</strong> <span id="modalVital"></span></div>
+        <div class="info-row"><strong>Temperature:</strong> <span id="modalTemp"></span></div>
+        <div class="info-row"><strong>Blood Pressure:</strong> <span id="modalBP"></span></div>
+        <div class="info-row"><strong>Pulse:</strong> <span id="modalPulse"></span></div>
         <div class="info-row"><strong>Patient Type:</strong> <span id="modalType"></span></div>
-        <div class="info-row"><strong>Assigned Nurse:</strong> <span id="modalNurse"></span></div>
+        <div class="info-row"><strong>Recent Nurse:</strong> <span id="modalNurse"></span></div>
     </div>
 </div>
 
 <script>
-function openModal(id, name, sex, vital, type, nurse) {
+    
+function openModal(id, name, sex, temp, bp, pulse, type, nurse) {
+    console.log("Sex passed:", sex); // Optional: Debug check
+
+    let genderStr = 'Female'; // default to Female
+    const upperSex = (sex || '').toUpperCase();
+    if (upperSex === 'M') genderStr = 'Male';
+
     document.getElementById('modalPatientID').textContent = id || 'N/A';
     document.getElementById('modalName').textContent = name || 'N/A';
-
-    let genderStr = 'Other';
-    if (sex === 'M') genderStr = 'Male';
-    else if (sex === 'F') genderStr = 'Female';
     document.getElementById('modalGender').textContent = genderStr;
-
-    document.getElementById('modalVital').textContent = vital || 'Not Recorded';
+    document.getElementById('modalTemp').textContent = temp || 'N/A';
+    document.getElementById('modalBP').textContent = bp || 'N/A';
+    document.getElementById('modalPulse').textContent = pulse || 'N/A';
     document.getElementById('modalType').textContent = type || 'Unknown';
-    document.getElementById('modalNurse').textContent = nurse || 'Unassigned';
+    document.getElementById('modalNurse').textContent = nurse || '-';
 
     document.getElementById('patientModal').style.display = 'flex';
 }
+
+
 
 function closeModal() {
     document.getElementById('patientModal').style.display = 'none';

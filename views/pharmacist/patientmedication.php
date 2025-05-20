@@ -41,7 +41,7 @@ $medications = $conn->query("SELECT pm.*, p.Name AS PatientName, d.DoctorName AS
 <body>
 
 <div class="content">
-    <h2>Patient Medication (View-Only)</h2>
+    <h2>Patient Medication</h2>
 
     <?php if (isset($_GET['status'])): ?>
         <?php if ($_GET['status'] == 'success'): ?>
@@ -114,7 +114,8 @@ $medications = $conn->query("SELECT pm.*, p.Name AS PatientName, d.DoctorName AS
     }
 
     th {
-        background-color: #f8f9fa;
+        background-color:#810000;
+        color:rgb(255, 255, 255);
     }
 
     form input, form button {

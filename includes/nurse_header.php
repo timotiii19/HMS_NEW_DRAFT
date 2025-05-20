@@ -6,8 +6,8 @@ include('../../config/db.php');
 
 $nurseName = "Unknown Nurse";
 
-if (isset($_SESSION['role']) && $_SESSION['role'] === 'nurse' && isset($_SESSION['role_id'])) {
-    $nurseID = $_SESSION['role_id'];
+if (isset($_SESSION['role']) && $_SESSION['role'] === 'Nurse' && isset($_SESSION['role_id'])) {
+    $nurseID = intval($_SESSION['role_id']);
 
     $stmt = $conn->prepare("SELECT Name FROM nurse WHERE NurseID = ?");
     $stmt->bind_param("i", $nurseID);
@@ -127,8 +127,9 @@ if (isset($_SESSION['role']) && $_SESSION['role'] === 'nurse' && isset($_SESSION
       <img src="../../assets/user.png" alt="Avatar" class="avatar" />
       <div class="user-dropdown" id="userDropdownToggle">
         <span>
-          <?php echo htmlspecialchars($nurseName); ?> <i class="fas fa-chevron-down"></i>
+          Nurse: <?php echo htmlspecialchars($nurseName); ?> <i class="fas fa-chevron-down"></i>
         </span>
+
         <div class="dropdown-content" id="userDropdownMenu">
           <a href="/HMS-main/views/nurse/profile.php">My Profile</a>
           <a href="/HMS-main/auth/logout.php">Logout</a>

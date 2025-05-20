@@ -176,8 +176,7 @@
   </div>
   <ul>
     <li>
-      <a href="/HMS-main/views/cashier/dashboard.php">
-        <i class="fas fa-tachometer-alt"></i><span class="label">Dashboard</span>
+     <a href="/HMS-main/views/cashier/dashboard.php"><i class="fa fa-chart-line"></i><span class="label">Dashboard</span>
       </a>
     </li>
     <li>

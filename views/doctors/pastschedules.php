@@ -100,7 +100,7 @@ if (isset($_SESSION['role']) && $_SESSION['role'] === 'Doctor' && isset($_SESSIO
 
 <style>
     .content {
-        margin-left: 200px;
+        margin-left: 230px;
         padding: 20px 40px;
         background-color:rgb(255, 255, 255);
         min-height: 100vh;

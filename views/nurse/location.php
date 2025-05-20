@@ -1,7 +1,7 @@
 <?php
 session_start();
 if (!isset($_SESSION['username']) || $_SESSION['role'] != 'Nurse') {
-    header("Location: ../../auth/nurse_login.php");
+    header("Location: ../../auth/login.php");
     exit();
 }
 include('../../includes/nurse_header.php');
@@ -20,11 +20,11 @@ $locations = $conn->query("SELECT * FROM locations");
     <title>Locations - Nurse Dashboard</title>
     <link rel="stylesheet" type="text/css" href="../../css/style.css">
     <style>
-        body {
-            background-color:rgb(255, 255, 255); /* Light background color */
-        }  
+        body{
+            background-color: #fffdfd;
+        }
         .content {
-            padding: 20px;
+            padding: 40px;
         }
 
         .button {
@@ -55,12 +55,9 @@ $locations = $conn->query("SELECT * FROM locations");
         }
 
         th {
-            background-color: #f8f9fa;
+            background-color:rgb(227, 227, 227);
         }
-
-        .table-striped tbody tr:nth-of-type(odd) {
-            background-color: #f2f2f2;
-        }
+        
     </style>
 </head>
 <body>
@@ -69,7 +66,7 @@ $locations = $conn->query("SELECT * FROM locations");
     <h2>Locations (View-Only)</h2>
     
     <h3>Location List</h3>
-    <table class="table table-striped">
+    <table>
         <thead>
             <tr>
                 <th>Location ID</th>
