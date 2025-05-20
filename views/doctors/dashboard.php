@@ -44,6 +44,7 @@ if ($hour < 12) {
             width: calc(100% - 220px);
             box-sizing: border-box;
             transition: all 0.3s ease;
+            margin-top: 20px;
         }
 
         body.sidebar-collapsed .content {
@@ -197,7 +198,7 @@ if ($hour < 12) {
 <body>
 
 <div class="content">
-    <div style="margin-top: 70px;">
+    <div style="margin-top: 0px;">
         <h3><?php echo $greet . ", Dr. " . htmlspecialchars($doctor_name); ?>!</h3>
         <p>This is your doctor dashboard. Use the cards below to manage your tasks.</p>
     </div>

@@ -265,9 +265,10 @@ body {
 }
 .content {
             margin-left: 220px; /* matches sidebar width */
-            padding: 80px 20px 20px; /* padding top accounts for fixed header */
+            padding: 40px; /* padding top accounts for fixed header */
             background-color: #f4f9f9;
-            min-height: 100vh;
+            min-height: 90vh;
+            margin-top: -30px;
 }
 </style>
 </head>

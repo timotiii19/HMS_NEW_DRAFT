@@ -409,17 +409,18 @@ document.addEventListener('DOMContentLoaded', function () {
 
 <style>
     .content {
-        margin-left: 220px; /* Assuming sidebar is fixed width */
-        padding: 40px; /* Top padding allows space for both fixed header and sticky bar */
+        margin-left: 220px; 
+        padding: 40px; 
         background-color: #e0f7fa;
         min-height: 100vh;
         box-sizing: border-box;
+        margin-top: -30px;
     }
 
     .header-bar {
         position: sticky;
-        top: 80px; /* Positioned below the fixed header */
-        z-index: 9; /* Less than the fixed header but above content */
+        top: 80px; 
+        z-index: 9; 
         background-color: #e0f7fa;
         padding: 10px 20px;
         display: flex;

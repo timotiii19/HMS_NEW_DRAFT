@@ -73,7 +73,7 @@
     .sidebar ul li a {
       display: flex;
       align-items: center;
-      gap: 10px;
+      gap: 7px;
       color: white;
       text-decoration: none;
       padding: 8px;
