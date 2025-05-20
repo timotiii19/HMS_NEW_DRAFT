@@ -8,27 +8,33 @@ include('../../includes/nurse_header.php');
 include('../../includes/nurse_sidebar.php');
 include('../../config/db.php');
 
-$location_id = $conn->query("SELECT * FROM locations");
+// Fetch all departments
+$dept_result = $conn->query("SELECT * FROM department");
+$departments = [];
+while ($row = $dept_result->fetch_assoc()) {
+    $departments[$row['DepartmentID']] = $row['DepartmentName'];
+}
 
 // Update schedule if form is submitted
 if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['update_schedule'])) {
     $id = $_POST['DoctorScheduleID'];
     $doctor_id = $_POST['DoctorID'];
-    $location_id = $_POST['LocationID'];
+    $department_id = $_POST['DepartmentID'];
     $date = $_POST['ScheduleDate'];
     $start = $_POST['StartTime'];
     $end = $_POST['EndTime'];
     $status = $_POST['Status'];
 
-    $stmt = $conn->prepare("UPDATE doctorschedule SET DoctorID=?, LocationID=?, ScheduleDate=?, StartTime=?, EndTime=?, Status=? WHERE DoctorScheduleID=?");
-    $stmt->bind_param("iissssi", $doctor_id, $location_id, $date, $start, $end, $status, $id);
+    $stmt = $conn->prepare("UPDATE doctorschedule SET DoctorID=?, DepartmentID=?, ScheduleDate=?, StartTime=?, EndTime=?, Status=? WHERE DoctorScheduleID=?");
+    $stmt->bind_param("iissssi", $doctor_id, $department_id, $date, $start, $end, $status, $id);
     $stmt->execute();
     header("Location: doctor_schedule.php");
     exit();
 }
 
-// Fetch doctor schedules
-$query = "SELECT * FROM doctorschedule";
+// Fetch doctor schedules with department name
+$query = "SELECT ds.*, d.DepartmentName FROM doctorschedule ds 
+          LEFT JOIN department d ON ds.DepartmentID = d.DepartmentID";
 $result = $conn->query($query);
 $schedules = $result->fetch_all(MYSQLI_ASSOC);
 ?>
@@ -40,9 +46,7 @@ $schedules = $result->fetch_all(MYSQLI_ASSOC);
     <title>Doctor Schedules - Nurse Dashboard</title>
     <link rel="stylesheet" type="text/css" href="../../css/style.css">
     <style>
-        body {
-            background-color:rgb(255, 255, 255); /* Light background color */
-        }  
+        body { background-color: #fff; }
         .content { padding: 20px; }
         .btn {
             padding: 8px 15px;
@@ -73,7 +77,6 @@ $schedules = $result->fetch_all(MYSQLI_ASSOC);
             background-color: #f2f2f2;
         }
 
-        /* Modal Styles */
         .modal {
             display: none;
             position: fixed;
@@ -123,7 +126,7 @@ $schedules = $result->fetch_all(MYSQLI_ASSOC);
                 <tr>
                     <th>ID</th>
                     <th>Doctor ID</th>
-                    <th>Location</th>
+                    <th>Department</th>
                     <th>Date</th>
                     <th>Start</th>
                     <th>End</th>
@@ -136,7 +139,7 @@ $schedules = $result->fetch_all(MYSQLI_ASSOC);
                     <tr>
                         <td><?= $s['DoctorScheduleID'] ?></td>
                         <td><?= $s['DoctorID'] ?></td>
-                        <td><?= $s['LocationID'] ?></td>
+                        <td><?= htmlspecialchars($s['DepartmentName'] ?? 'N/A') ?></td>
                         <td><?= $s['ScheduleDate'] ?></td>
                         <td><?= $s['StartTime'] ?></td>
                         <td><?= $s['EndTime'] ?></td>
@@ -160,11 +163,16 @@ $schedules = $result->fetch_all(MYSQLI_ASSOC);
                 </div>
                 <div class="modal-body">
                     <input type="hidden" name="DoctorScheduleID" id="edit-id">
+                    
                     <label>Doctor ID</label>
                     <input type="number" name="DoctorID" id="edit-doctor-id" required>
 
-                    <label>Location ID</label>
-                    <input type="number" name="LocationID" id="edit-location-id" required>
+                    <label>Department</label>
+                    <select name="DepartmentID" id="edit-department-id" required>
+                        <?php foreach ($departments as $dept_id => $dept_name): ?>
+                            <option value="<?= $dept_id ?>"><?= htmlspecialchars($dept_name) ?></option>
+                        <?php endforeach; ?>
+                    </select>
 
                     <label>Date</label>
                     <input type="date" name="ScheduleDate" id="edit-date" required>
@@ -191,13 +199,13 @@ $schedules = $result->fetch_all(MYSQLI_ASSOC);
 
     <script>
         function openEditModal(schedule) {
-            document.getElementById('edit-id').value = schedule.DoctorScheduleID;
-            document.getElementById('edit-doctor-id').value = schedule.DoctorID;
-            document.getElementById('edit-location-id').value = schedule.LocationID;
-            document.getElementById('edit-date').value = schedule.ScheduleDate;
-            document.getElementById('edit-start').value = schedule.StartTime;
-            document.getElementById('edit-end').value = schedule.EndTime;
-            document.getElementById('edit-status').value = schedule.Status;
+            document.getElementById('edit-id').value = schedule.DoctorScheduleID || '';
+            document.getElementById('edit-doctor-id').value = schedule.DoctorID || '';
+            document.getElementById('edit-department-id').value = schedule.DepartmentID || '';
+            document.getElementById('edit-date').value = schedule.ScheduleDate || '';
+            document.getElementById('edit-start').value = schedule.StartTime || '';
+            document.getElementById('edit-end').value = schedule.EndTime || '';
+            document.getElementById('edit-status').value = schedule.Status || '';
             document.getElementById('editModal').style.display = 'block';
         }
 

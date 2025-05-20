@@ -168,7 +168,7 @@ $admins = getAdmins($conn, $filter);
         }
 
         .responsive-table th {
-            background-color:rgb(222, 76, 108); /* deep maroon */
+            background-color:#f8f9fa; /* deep maroon */
             color: white;
             font-weight: 600;
         }

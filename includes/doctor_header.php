@@ -4,8 +4,6 @@ if (session_status() === PHP_SESSION_NONE) {
 }
 include('../../config/db.php');
 
-$doctorName = "Unknown";
-
 if (isset($_SESSION['role']) && $_SESSION['role'] === 'doctor' && isset($_SESSION['role_id'])) {
     $doctorID = $_SESSION['role_id'];
 
@@ -133,7 +131,6 @@ if (isset($_SESSION['role']) && $_SESSION['role'] === 'doctor' && isset($_SESSIO
 <div class="header">
     <div class="left-section">
         <img src="../../images/hosplogo.png" alt="Logo" class="logo">
-        <i class="fas fa-bars menu-icon"></i>
     </div>
 
     <div class="search-section">

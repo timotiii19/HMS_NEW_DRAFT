@@ -108,7 +108,6 @@
 <div class="header">
     <div class="left-section">
         <img src="../../images/hosplogo.png" alt="Logo" class="logo">
-        <i class="fas fa-bars menu-icon"></i>
         <div class="dropdown">
         </div>
     </div>
