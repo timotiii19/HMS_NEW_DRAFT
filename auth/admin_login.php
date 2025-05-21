@@ -144,6 +144,7 @@ if ($_SERVER["REQUEST_METHOD"] == "POST") {
             <div class="error"><?php echo $error; ?></div>
             <button type="submit">LOG IN</button>
         </form>
+        <a href="../auth/forgot_password.php" style="font-size: 13px; color: rgb(201, 65, 65); display: inline-block; margin-top: 10px;">Forgot Password?</a>
     </div>
 </body>
 </html>

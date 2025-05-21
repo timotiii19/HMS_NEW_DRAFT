@@ -5,7 +5,6 @@ if (!isset($_SESSION['username']) || $_SESSION['role'] != 'Admin') {
     exit();
 }
 
-
 include('../../config/db.php');
 
 // Handle update
@@ -15,9 +14,26 @@ if (isset($_POST['update_pharmacist'])) {
     $email = $_POST['email'];
     $contact = $_POST['contact'];
 
-    $stmt = $conn->prepare("UPDATE pharmacist SET Name=?, Email=?, ContactNumber=? WHERE PharmacistID=?");
-    $stmt->bind_param("sssi", $name, $email, $contact, $pharmacist_id);
+    // Get UserID from pharmacist
+    $getUser = $conn->prepare("SELECT UserID FROM pharmacist WHERE PharmacistID = ?");
+    $getUser->bind_param("i", $pharmacist_id);
+    $getUser->execute();
+    $getUser->bind_result($user_id);
+    $getUser->fetch();
+    $getUser->close();
+
+    // Update pharmacist info
+    $stmt = $conn->prepare("UPDATE pharmacist SET Name=?, Email=? WHERE PharmacistID=?");
+    $stmt->bind_param("ssi", $name, $email, $pharmacist_id);
     $stmt->execute();
+    $stmt->close();
+
+    // Update user contact number
+    $stmt2 = $conn->prepare("UPDATE users SET ContactNumber=? WHERE UserID=?");
+    $stmt2->bind_param("si", $contact, $user_id);
+    $stmt2->execute();
+    $stmt2->close();
+
     header("Location: pharmacists.php");
     exit();
 }
@@ -30,7 +46,13 @@ if (isset($_GET['delete'])) {
     exit();
 }
 
-$result = $conn->query("SELECT * FROM pharmacist");
+// Fetch pharmacists with contact number from users table
+$result = $conn->query("
+    SELECT p.PharmacistID, p.Name, p.Email, u.ContactNumber
+    FROM pharmacist p
+    JOIN users u ON p.UserID = u.UserID
+");
+
 include('../../includes/admin_header.php');
 include('../../includes/admin_sidebar.php');
 ?>
@@ -269,7 +291,7 @@ include('../../includes/admin_sidebar.php');
 <!-- Modal -->
 <div id="editModal" class="modal">
     <div class="modal-content">
-        <span class="modal-close" onclick="closeModal()">×</span>
+        <span class="close" onclick="closeModal()">×</span>
         <h3>Edit Pharmacist Details</h3>
         <form method="post" action="pharmacists.php">
             <input type="hidden" name="pharmacist_id" id="modal_pharmacist_id">

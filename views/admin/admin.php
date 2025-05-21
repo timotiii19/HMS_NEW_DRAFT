@@ -14,7 +14,7 @@ include('../../config/db.php');
 $filter = isset($_GET['filter']) ? $_GET['filter'] : 'all';
 
 function getAdmins($conn, $filter = 'all') {
-    $baseQuery = "SELECT u.UserID, u.username, u.email, u.full_name, a.superadmin, u.role
+    $baseQuery = "SELECT u.UserID, u.username, u.email, u.full_name, u.ContactNumber, a.superadmin, u.role
                   FROM admin a
                   JOIN users u ON a.UserID = u.UserID";
 
@@ -89,57 +89,7 @@ $admins = getAdmins($conn, $filter);
     <meta charset="UTF-8">
     <title>Admin Management</title>
     <link rel="stylesheet" href="../../css/style.css">
-    <!-- keep your existing styles here -->
     <style>
-        /* styles unchanged for brevity */
-    </style>
-</head>
-<body>
-<div class="content">
-    <h2>Admin Management</h2>
-
-    <!-- Filter Buttons -->
-    <div class="filter-buttons">
-        <a href="admin.php?filter=all"><button class="<?= $filter === 'all' ? 'active' : '' ?>">All Admins</button></a>
-        <a href="admin.php?filter=superadmin"><button class="<?= $filter === 'superadmin' ? 'active' : '' ?>">Superadmins</button></a>
-        <a href="admin.php?filter=admin"><button class="<?= $filter === 'admin' ? 'active' : '' ?>">Admins</button></a>
-    </div>
-    <br>
-
-    <?php if (isset($error)) echo "<p style='color:red;'>$error</p>"; ?>
-
-   <div class="table-container">
-<table class="responsive-table">
-    <thead>
-        <tr>
-            <th>ID</th><th>Username</th><th>Full Name</th><th>Email</th><th>Role</th><th>Superadmin</th><th>Actions</th>
-        </tr>
-    </thead>
-    <tbody>
-    <?php foreach ($admins as $admin): ?>
-        <tr>
-            <td><?= $admin['UserID'] ?></td>
-            <td><?= htmlspecialchars($admin['username']) ?></td>
-            <td><?= htmlspecialchars($admin['full_name']) ?></td>
-            <td><?= htmlspecialchars($admin['email']) ?></td>
-            <td><?= htmlspecialchars($admin['role']) ?></td>
-            <td><?= $admin['superadmin'] ? 'Yes' : 'No' ?></td>
-            <td>
-                <?php if ($_SESSION['UserID'] != $admin['UserID']): ?>
-                   <a class="remove-link" href="admin.php?remove=<?= $admin['UserID'] ?>&filter=<?= $filter ?>" onclick="return confirm('Are you sure you want to remove admin rights from <?= htmlspecialchars($admin['username']) ?>? This cannot be undone.');">Remove</a>
-
-                <?php else: ?>
-                    (You)
-                <?php endif; ?>
-            </td>
-        </tr>
-    <?php endforeach; ?>
-    </tbody>
-</table>
-</div>
-
-
-     <style>
         body {
             font-family: Arial, sans-serif;
             background-color: #ffffff;
@@ -158,7 +108,7 @@ $admins = getAdmins($conn, $filter);
             width: 100%;
             max-width: 100%;
             border-collapse: collapse;
-            min-width: 800px;
+            min-width: 1000px;
         }
 
         .responsive-table th, .responsive-table td {
@@ -166,18 +116,15 @@ $admins = getAdmins($conn, $filter);
             text-align: center;
             border: 1px solid #ddd;
             white-space: nowrap;
-            color: #000000; /* Set font color to black */
+            color: #000000;
         }
-
 
         .responsive-table th {
             background-color: #f8f9fa;
-            color: #000000; /* Set header text to black */
+            color: #000000;
             font-weight: 600;
         }
 
-
-        /* Filter Buttons */
         .filter-buttons {
             margin-bottom: 20px;
         }
@@ -207,11 +154,9 @@ $admins = getAdmins($conn, $filter);
             box-shadow: 0 6px 15px rgba(218, 55, 90, 0.79);
         }
 
-        /* Action Buttons */
         a {
             color:rgb(222, 180, 189);
             text-decoration: none;
-            
         }
 
         a:hover {
@@ -219,105 +164,67 @@ $admins = getAdmins($conn, $filter);
             color:rgb(228, 80, 112);
         }
 
-        /* Modal Styles */
-        .modal {
-            position: fixed;
-            z-index: 999;
-            left: 0; top: 0;
-            width: 100%; height: 100%;
-            overflow: auto;
-            background-color: rgba(212, 64, 96, 0.8);
-            display: none;
-            justify-content: center;
-            align-items: center;
-        }
-
-        .modal-content {
-            border: 2px solid rgb(188, 53, 82);
-            border-radius: 12px;
-            padding: 40px;
-            background-color: #fff;
-            max-width: 500px;
-            width: 90%;
-            text-align: center;
-            box-shadow: 0 0 15px rgba(223, 63, 97, 0.56);
-            position: relative;
-        }
-
-        .close {
-            position: absolute;
-            top: 15px;
-            right: 20px;
-            font-size: 28px;
-            font-weight: bold;
-            color: #84142d;
-            cursor: pointer;
-        }
-
-        .close:hover {
-            color: #6d0f23;
-        }
-
-        .profile-img {
-            width: 100px;
-            height: 100px;
-            margin: 0 auto 30px;
-            border-radius: 50%;
-            background-color: #f2cfd3;
-            display: flex;
-            justify-content: center;
-            align-items: center;
-        }
-
-        .profile-img img {
-            width: 60px;
-            height: 60px;
-        }
-
-        .info-row {
-            display: flex;
-            justify-content: space-between;
-            margin: 12px 0;
-            font-size: 16px;
-            color: #444;
-        }
-
-        .info-row strong {
-            font-weight: 600;
-            color: #333;
-        }
-
-        .back-link {
-            display: inline-block;
-            margin-top: 30px;
-            text-decoration: none;
-            color: white;
-            background-color: #a0223f;
-            padding: 10px 20px;
-            border-radius: 6px;
-            font-size: 14px;
-            transition: background-color 0.3s ease;
-        }
-
-        .back-link:hover {
-            background-color:rgb(194, 42, 75);
-        }
-
-        .delete-link {
-            color: #cc0000;
-        }
         .remove-link {
-            color:rgb(218, 50, 50); /* black */
+            color:rgb(218, 50, 50);
             font-weight: bold;
         }
 
         .remove-link:hover {
-            color: #a0223f; /* dark red/maroon on hover */
+            color: #a0223f;
             text-decoration: underline;
         }
+    </style>
+</head>
+<body>
+<div class="content">
+    <h2>Admin Management</h2>
 
+    <div class="filter-buttons">
+        <a href="admin.php?filter=all"><button class="<?= $filter === 'all' ? 'active' : '' ?>">All Admins</button></a>
+        <a href="admin.php?filter=superadmin"><button class="<?= $filter === 'superadmin' ? 'active' : '' ?>">Superadmins</button></a>
+        <a href="admin.php?filter=admin"><button class="<?= $filter === 'admin' ? 'active' : '' ?>">Admins</button></a>
+    </div>
+    <br>
 
- </style>
+    <?php if (isset($error)) echo "<p style='color:red;'>$error</p>"; ?>
+
+    <div class="table-container">
+        <table class="responsive-table">
+            <thead>
+                <tr>
+                    <th>ID</th>
+                    <th>Username</th>
+                    <th>Full Name</th>
+                    <th>Email</th>
+                    <th>Contact Number</th>
+                    <th>Role</th>
+                    <th>Superadmin</th>
+                    <th>Actions</th>
+                </tr>
+            </thead>
+            <tbody>
+            <?php foreach ($admins as $admin): ?>
+                <tr>
+                    <td><?= $admin['UserID'] ?></td>
+                    <td><?= htmlspecialchars($admin['username']) ?></td>
+                    <td><?= htmlspecialchars($admin['full_name']) ?></td>
+                    <td><?= htmlspecialchars($admin['email']) ?></td>
+                    <td><?= htmlspecialchars($admin['ContactNumber']) ?></td>
+                    <td><?= htmlspecialchars($admin['role']) ?></td>
+                    <td><?= $admin['superadmin'] ? 'Yes' : 'No' ?></td>
+                    <td>
+                        <?php if ($_SESSION['UserID'] != $admin['UserID']): ?>
+                            <a class="remove-link" href="admin.php?remove=<?= $admin['UserID'] ?>&filter=<?= $filter ?>" onclick="return confirm('Are you sure you want to remove admin rights from <?= htmlspecialchars($admin['username']) ?>? This cannot be undone.');">Remove</a>
+                        <?php else: ?>
+                            (You)
+                        <?php endif; ?>
+                    </td>
+                </tr>
+            <?php endforeach; ?>
+            </tbody>
+        </table>
+    </div>
+</div>
 </body>
 </html>
 

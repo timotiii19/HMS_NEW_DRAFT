@@ -11,10 +11,29 @@ include('../../config/db.php');
 if (isset($_POST['update_cashier'])) {
     $cashier_id = $_POST['cashier_id'];
     $name = $_POST['name'];
+    $email = $_POST['email'];
+    $contact = $_POST['contact'];
 
-    $stmt = $conn->prepare("UPDATE cashier SET Name=? WHERE CashierID=?");
-    $stmt->bind_param("si", $name, $cashier_id);
-    $stmt->execute();
+    // Get UserID from cashier
+    $getUser = $conn->prepare("SELECT UserID FROM cashier WHERE CashierID = ?");
+    $getUser->bind_param("i", $cashier_id);
+    $getUser->execute();
+    $getUser->bind_result($user_id);
+    $getUser->fetch();
+    $getUser->close();
+
+    // Update cashier
+    $stmt1 = $conn->prepare("UPDATE cashier SET Name=? WHERE CashierID=?");
+    $stmt1->bind_param("si", $name, $cashier_id);
+    $stmt1->execute();
+    $stmt1->close();
+
+    // Update user email and contact
+    $stmt2 = $conn->prepare("UPDATE users SET Email=?, ContactNumber=? WHERE UserID=?");
+    $stmt2->bind_param("ssi", $email, $contact, $user_id);
+    $stmt2->execute();
+    $stmt2->close();
+
     header("Location: cashier.php");
     exit();
 }
@@ -27,17 +46,22 @@ if (isset($_GET['delete'])) {
     exit();
 }
 
-// Fetch cashiers
-$result = $conn->query("SELECT * FROM cashier");
+// Fetch cashiers with contact and email from users
+$result = $conn->query("
+    SELECT c.CashierID, c.Name, u.Email, u.ContactNumber
+    FROM cashier c
+    JOIN users u ON c.UserID = u.UserID
+");
+
 include('../../includes/admin_header.php');
 include('../../includes/admin_sidebar.php');
 ?>
 <!DOCTYPE html>
 <html lang="en">
 <head>
-<meta charset="UTF-8" />
-<title>Casheirs Management</title>
-<link rel="stylesheet" href="../../css/style.css" />
+    <meta charset="UTF-8" />
+    <title>Cashier Management</title>
+    <link rel="stylesheet" href="../../css/style.css" />
     <style>
         body {
             font-family: Arial, sans-serif;
@@ -64,125 +88,17 @@ include('../../includes/admin_sidebar.php');
             background-color: #f8f9fa;
         }
 
-        form input, form button {
-            padding: 5px 10px;
-            margin-top: 5px;
-        }
-
-        button.view-btn {
-            background-color: #6f42c1;
-            color: white;
-            border: none;
-            border-radius: 6px;
-            padding: 8px 16px;
-            cursor: pointer;
-        }
-
-        button.view-btn:hover {
-            background-color: #512da8;
-        }
-
-        /* Modal styles (based on your patient details page) */
-        .modal {
-            position: fixed;
-            z-index: 999;
-            left: 0; top: 0;
-            width: 100%; height: 100%;
-            overflow: auto;
-            background-color: rgba(0,0,0,0.5);
-            display: none;
-            justify-content: center;
-            align-items: center;
-        }
-
-        .modal-content {
-            border: 2px solid purple;
-            border-radius: 12px;
-            padding: 40px;
-            background-color: #fff;
-            max-width: 500px;
-            width: 90%;
-            text-align: center;
-            box-shadow: 0 0 12px rgba(0,0,0,0.05);
-            position: relative;
-        }
-
-        .close {
-            position: absolute;
-            top: 15px;
-            right: 20px;
-            font-size: 28px;
-            font-weight: bold;
-            color: #888;
-            cursor: pointer;
-        }
-
-        .close:hover {
-            color: #000;
-        }
-
-        .profile-img {
-            width: 100px;
-            height: 100px;
-            margin: 0 auto 30px;
-            border-radius: 50%;
-            background-color: #f0f0f0;
-            display: flex;
-            justify-content: center;
-            align-items: center;
-        }
-
-        .profile-img img {
-            width: 60px;
-            height: 60px;
-        }
-
-        .info-row {
-            display: flex;
-            justify-content: space-between;
-            margin: 12px 0;
-            font-size: 16px;
-            color: #555;
-        }
-
-        .info-row strong {
-            font-weight: 600;
-            color: #444;
-        }
-
-        .back-link {
-            display: inline-block;
-            margin-top: 30px;
-            text-decoration: none;
-            color: #fff;
-            background-color: #6f42c1;
-            padding: 10px 20px;
-            border-radius: 6px;
-            font-size: 14px;
-        }
-
-        .back-link:hover {
-            background-color: #512da8;
-        }
-
         .edit-link {
             color: #007bff;
             cursor: pointer;
             text-decoration: underline;
-            margin-right: 10px;
-        }
-        .edit-link:hover {
-            text-decoration: none;
         }
 
         .delete-link {
             color: #dc3545;
             text-decoration: underline;
-            cursor: pointer;
         }
-        .delete-link:hover {
-            text-decoration: none;
-        }
+
         .modal {
             display: none;
             position: fixed;
@@ -192,6 +108,7 @@ include('../../includes/admin_sidebar.php');
             justify-content: center;
             align-items: center;
         }
+
         .modal-content {
             background: #fff;
             padding: 20px;
@@ -199,13 +116,43 @@ include('../../includes/admin_sidebar.php');
             width: 400px;
             position: relative;
         }
+
         .modal-close {
             position: absolute;
             top: 10px; right: 10px;
             cursor: pointer;
             font-size: 20px;
         }
-  </style>
+
+        .form-group {
+            margin-bottom: 15px;
+            text-align: left;
+        }
+
+        .form-group label {
+            display: block;
+            margin-bottom: 6px;
+            font-weight: bold;
+        }
+
+        .form-group input {
+            width: 100%;
+            padding: 8px;
+        }
+
+        .sbtn {
+            background-color: #6f42c1;
+            color: white;
+            padding: 8px 16px;
+            border: none;
+            border-radius: 6px;
+            cursor: pointer;
+        }
+
+        .sbtn:hover {
+            background-color: #512da8;
+        }
+    </style>
 </head>
 <body>
 
@@ -218,6 +165,8 @@ include('../../includes/admin_sidebar.php');
                 <tr>
                     <th>ID</th>
                     <th>Cashier Name</th>
+                    <th>Email</th>
+                    <th>Contact Number</th>
                     <th>Action</th>
                 </tr>
             </thead>
@@ -227,10 +176,14 @@ include('../../includes/admin_sidebar.php');
                         <tr>
                             <td><?= $row['CashierID'] ?></td>
                             <td><?= htmlspecialchars($row['Name']) ?></td>
+                            <td><?= htmlspecialchars($row['Email']) ?></td>
+                            <td><?= htmlspecialchars($row['ContactNumber']) ?></td>
                             <td>
                                 <span class="edit-link" onclick="openModal(
                                     <?= $row['CashierID'] ?>,
-                                    '<?= htmlspecialchars($row['Name'], ENT_QUOTES) ?>'
+                                    '<?= htmlspecialchars($row['Name'], ENT_QUOTES) ?>',
+                                    '<?= htmlspecialchars($row['Email'], ENT_QUOTES) ?>',
+                                    '<?= htmlspecialchars($row['ContactNumber'], ENT_QUOTES) ?>'
                                 )">Edit</span>
                                 |
                                 <a href="?delete=<?= $row['CashierID'] ?>" class="delete-link" onclick="return confirm('Are you sure?')">Delete</a>
@@ -238,7 +191,7 @@ include('../../includes/admin_sidebar.php');
                         </tr>
                     <?php endwhile; ?>
                 <?php else: ?>
-                    <tr><td colspan="3">No cashier records found.</td></tr>
+                    <tr><td colspan="5">No cashier records found.</td></tr>
                 <?php endif; ?>
             </tbody>
         </table>
@@ -257,15 +210,26 @@ include('../../includes/admin_sidebar.php');
                 <label>Name</label>
                 <input type="text" name="name" id="modal_name" required>
             </div>
+            <div class="form-group">
+                <label>Email</label>
+                <input type="email" name="email" id="modal_email" required>
+            </div>
+            <div class="form-group">
+                <label>Contact Number</label>
+                <input type="text" name="contact" id="modal_contact" required>
+            </div>
+
             <button type="submit" name="update_cashier" class="sbtn">Save Changes</button>
         </form>
     </div>
 </div>
 
 <script>
-function openModal(id, name) {
+function openModal(id, name, email, contact) {
     document.getElementById('modal_cashier_id').value = id;
     document.getElementById('modal_name').value = name;
+    document.getElementById('modal_email').value = email;
+    document.getElementById('modal_contact').value = contact;
     document.getElementById('editModal').style.display = 'flex';
 }
 

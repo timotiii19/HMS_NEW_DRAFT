@@ -1,6 +1,43 @@
 <?php
-//session_start();
+// Start session only if not started
+if (session_status() === PHP_SESSION_NONE) {
+    session_start();
+}
+
+// Include database connection - use absolute path from document root
+include_once $_SERVER['DOCUMENT_ROOT'] . '/HMS-main/config/db.php';
+
+// Initialize user info array
+$user = [
+    'full_name' => '',
+    'email' => '',
+    'ContactNumber' => '',
+    'role' => '',
+];
+
+// Check if user is logged in and UserID session exists
+if (isset($_SESSION['UserID'])) {
+    $userId = $_SESSION['UserID'];
+    $user['role'] = $_SESSION['role'] ?? '';
+    
+    // Prepare and execute query to get user info
+    if ($conn) {
+        $stmt = $conn->prepare("SELECT full_name, email, ContactNumber FROM users WHERE UserID = ?");
+        if ($stmt) {
+            $stmt->bind_param("i", $userId);
+            $stmt->execute();
+            $result = $stmt->get_result();
+            if ($row = $result->fetch_assoc()) {
+                $user['full_name'] = $row['full_name'];
+                $user['email'] = $row['email'];
+                $user['ContactNumber'] = $row['ContactNumber'];
+            }
+            $stmt->close();
+        }
+    }
+}
 ?>
+
 <!DOCTYPE html>
 <html lang="en">
 <head>
@@ -9,7 +46,7 @@
   <title>Admin Header</title>
   <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css" />
   <style>
-    /* Your CSS here — same as your existing header styles */
+    /* Existing header styles */
     .header {
       position: fixed;
       top: 0;
@@ -23,17 +60,14 @@
       padding: 10px 20px;
       z-index: 10;
     }
-
     .left-section, .right-section {
       display: flex;
       align-items: center;
       gap: 15px;
     }
-
     .logo {
       height: 40px;
     }
-
     .search-section {
       display: flex;
       align-items: center;
@@ -41,7 +75,6 @@
       border-radius: 20px;
       padding: 5px 10px;
     }
-
     .search-section input {
       background: transparent;
       border: none;
@@ -50,17 +83,14 @@
       padding: 5px;
       width: 200px;
     }
-
     .search-icon {
       margin-left: 5px;
       color: #cc8383;
       cursor: pointer;
     }
-
     .dropdown {
       position: relative;
     }
-
     .dropbtn {
       background: none;
       border: none;
@@ -68,7 +98,6 @@
       font-size: 16px;
       cursor: pointer;
     }
-
     .dropdown-content {
       display: none;
       position: absolute;
@@ -78,22 +107,24 @@
       top: 100%;
       left: 0;
     }
-
-    .dropdown-content a {
+    .dropdown-content a, .dropdown-content button {
       color: white;
       padding: 10px;
       text-decoration: none;
       display: block;
+      background: none;
+      border: none;
+      width: 100%;
+      text-align: left;
+      cursor: pointer;
+      font-size: 14px;
     }
-
-    .dropdown-content a:hover {
+    .dropdown-content a:hover, .dropdown-content button:hover {
       background-color: #5a6570;
     }
-
     .dropdown:hover .dropdown-content {
       display: block;
     }
-
     .avatar {
       width: 35px;
       height: 35px;
@@ -101,14 +132,12 @@
       border: 2px solid #4caf50;
       margin-right: 0px;
     }
-
     .user-dropdown {
       position: relative;
       cursor: pointer;
       font-size: 14px;
       margin-right: 50px;
     }
-
     .user-dropdown .dropdown-content {
       position: absolute;
       display: none;
@@ -119,16 +148,93 @@
       z-index: 999;
       margin-right: 50px;
     }
-
     .user-dropdown .dropdown-content a {
       color: white;
       padding: 10px;
       text-decoration: none;
       display: block;
     }
-
     .user-dropdown .dropdown-content a:hover {
       background-color: #555;
+    }
+
+    /* Modal Styles */
+    .modal {
+      display: none;
+      position: fixed;
+      z-index: 10000;
+      left: 0; top: 0;
+      width: 100%; height: 100%;
+      background-color: rgba(0,0,0,0.5);
+      justify-content: center;
+      align-items: center;
+    }
+    .modal.show {
+      display: flex;
+    }
+    .modal-content {
+      background-color: #fff;
+      padding: 30px;
+      border-radius: 8px;
+      max-width: 400px;
+      width: 90%;
+      box-shadow: 0 2px 8px rgba(0,0,0,0.3);
+      position: relative;
+      font-family: Arial, sans-serif;
+    }
+    .modal-content h3 {
+      margin-top: 0;
+      margin-bottom: 20px;
+      color: #eb6d9b;
+    }
+    .modal-content label {
+      display: block;
+      margin: 12px 0 6px 0;
+      font-weight: bold;
+    }
+    .modal-content input[type="text"],
+    .modal-content input[type="email"] {
+      width: 100%;
+      padding: 8px;
+      box-sizing: border-box;
+      border-radius: 4px;
+      border: 1px solid #ccc;
+      font-size: 14px;
+    }
+    .modal-content button.save-btn {
+      margin-top: 20px;
+      background-color: #eb6d9b;
+      border: none;
+      padding: 10px 20px;
+      color: white;
+      cursor: pointer;
+      font-size: 16px;
+      border-radius: 4px;
+    }
+    .modal-content button.save-btn:hover {
+      background-color: #d1527e;
+    }
+    .modal-content .close-btn {
+      position: absolute;
+      top: 10px;
+      right: 15px;
+      font-size: 22px;
+      color: #999;
+      cursor: pointer;
+      border: none;
+      background: none;
+    }
+    .modal-content .close-btn:hover {
+      color: #333;
+    }
+    .modal-message {
+      margin-top: 10px;
+      font-size: 14px;
+      color: green;
+      display: none;
+    }
+    .modal-message.error {
+      color: red;
     }
   </style>
 </head>
@@ -171,15 +277,39 @@
           <i class="fas fa-chevron-down"></i>
         </span>
         <div class="dropdown-content" id="userDropdownMenu">
-          <a href="/HMS-main/views/admin/profile.php">My Profile</a>
+          <button id="openProfileBtn" type="button">My Profile</button>
           <a href="/HMS-main/auth/logout.php">Logout</a>
         </div>
       </div>
     </div>
   </div>
 
+  <!-- Profile Modal -->
+  <div id="profileModal" class="modal" aria-hidden="true" role="dialog" aria-labelledby="profileModalTitle" aria-modal="true">
+    <div class="modal-content">
+      <button class="close-btn" aria-label="Close modal" id="closeModalBtn">&times;</button>
+      <h3 id="profileModalTitle">My Profile</h3>
+      <form id="profileForm">
+        <label for="full_name">Full Name</label>
+        <input type="text" id="full_name" name="full_name" required value="<?php echo htmlspecialchars($user['full_name']); ?>" />
+
+        <label for="email">Email</label>
+        <input type="email" id="email" name="email" required value="<?php echo htmlspecialchars($user['email']); ?>" />
+
+        <label for="contact">Contact Number</label>
+        <input type="text" id="contact" name="contact" required value="<?php echo htmlspecialchars($user['ContactNumber']); ?>" />
+
+        <label for="role">Role</label>
+        <input type="text" id="role" name="role" readonly value="<?php echo htmlspecialchars($user['role']); ?>" />
+
+        <button type="submit" class="save-btn">Save Changes</button>
+        <div id="modalMessage" class="modal-message"></div>
+      </form>
+    </div>
+  </div>
+
   <script>
-    // Search functionality
+    // Search functionality (unchanged)
     const searchInput = document.getElementById('searchInput');
     const searchBtn = document.getElementById('searchBtn');
 
@@ -201,7 +331,7 @@
       performSearch(searchInput.value);
     });
 
-    // User dropdown toggle
+    // User dropdown toggle (unchanged)
     const userToggle = document.getElementById('userDropdownToggle');
     const userMenu = document.getElementById('userDropdownMenu');
 
@@ -212,6 +342,76 @@
 
     document.addEventListener('click', function () {
       userMenu.style.display = 'none';
+    });
+
+    // Modal controls
+    const openProfileBtn = document.getElementById('openProfileBtn');
+    const profileModal = document.getElementById('profileModal');
+    const closeModalBtn = document.getElementById('closeModalBtn');
+    const profileForm = document.getElementById('profileForm');
+    const modalMessage = document.getElementById('modalMessage');
+
+    openProfileBtn.addEventListener('click', () => {
+      userMenu.style.display = 'none';
+      profileModal.classList.add('show');
+      profileModal.setAttribute('aria-hidden', 'false');
+      // Focus first input for accessibility
+      document.getElementById('full_name').focus();
+    });
+
+    // Remove outside click close behavior completely
+    // window.addEventListener('click', (e) => {
+    //   if (e.target === profileModal) {
+    //     profileModal.classList.remove('show');
+    //     profileModal.setAttribute('aria-hidden', 'true');
+    //     modalMessage.style.display = 'none';
+    //     modalMessage.textContent = '';
+    //   }
+    // });
+
+    closeModalBtn.addEventListener('click', () => {
+      profileModal.classList.remove('show');
+      profileModal.setAttribute('aria-hidden', 'true');
+
+      // Reset modal message and form fields if needed
+      modalMessage.style.display = 'none';
+      modalMessage.textContent = '';
+
+      // Optionally reset form validation or other state here
+    });
+
+    profileForm.addEventListener('submit', (e) => {
+      e.preventDefault();
+
+      const formData = new FormData(profileForm);
+
+      fetch('/HMS-main/includes/update_profile.php', {
+        method: 'POST',
+        body: formData
+      })
+      .then(res => res.json())
+      .then(data => {
+        if (data.success) {
+          modalMessage.style.color = 'green';
+          modalMessage.textContent = 'Profile updated successfully!';
+          modalMessage.style.display = 'block';
+
+          // Update header username/role immediately
+          const userSpan = userToggle.querySelector('span');
+          userSpan.childNodes[0].nodeValue = data.role + ': ' + data.full_name + ' ';
+
+          // Do NOT auto-close modal anymore; let user close manually
+        } else {
+          modalMessage.style.color = 'red';
+          modalMessage.textContent = data.message || 'Failed to update profile.';
+          modalMessage.style.display = 'block';
+        }
+      })
+      .catch(() => {
+        modalMessage.style.color = 'red';
+        modalMessage.textContent = 'Error occurred. Try again.';
+        modalMessage.style.display = 'block';
+      });
     });
   </script>
 </body>

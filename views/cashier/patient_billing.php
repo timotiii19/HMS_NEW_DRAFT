@@ -16,8 +16,12 @@ if ($conn->connect_error) {
 // Fetch Medicine
 $medicines_result = $conn->query("SELECT MedicineID, MedicineName, Price, StockQuantity FROM Pharmacy");
 
-// Fetch doctors
-$doctors_result = $conn->query("SELECT DoctorID, DoctorName, DoctorFee FROM doctor");
+// Fetch Doctor
+$doctors_result = $conn->query("
+    SELECT d.DoctorID, d.DoctorName, d.DoctorFee, dept.DepartmentName 
+    FROM doctor d
+    LEFT JOIN department dept ON d.DepartmentID = dept.DepartmentID
+");
 
 // Fetch patients
 $patients_result = $conn->query("SELECT PatientID, Name FROM patients");
@@ -164,13 +168,15 @@ if (isset($_GET['delete'])) {
     }
 }
 
-
-
-// Fetch bills
-$bills_result = $conn->query("SELECT b.*, p.PatientID, p.Name AS PatientName, d.DoctorID, d.DoctorName
-FROM patientbilling b
-JOIN patients p ON b.PatientID = p.PatientID
-JOIN doctor d ON b.DoctorID = d.DoctorID;");
+// Fetch bills with department
+$bills_result = $conn->query("
+    SELECT b.*, p.PatientID, p.Name AS PatientName, 
+           d.DoctorID, d.DoctorName, dept.DepartmentName
+    FROM patientbilling b
+    JOIN patients p ON b.PatientID = p.PatientID
+    JOIN doctor d ON b.DoctorID = d.DoctorID
+    LEFT JOIN department dept ON d.DepartmentID = dept.DepartmentID
+");
 ?>
 
 <!DOCTYPE html>
@@ -179,267 +185,258 @@ JOIN doctor d ON b.DoctorID = d.DoctorID;");
     <meta charset="UTF-8">
     <title>Billing Management</title>
     <style>
-    body {
-        font-family: Arial, sans-serif;
-        background-color: #ffffff;
-    }
-
+    /* Main Content Styles */
     .content {
-        padding: 40px;
-        max-width: 820px;
-        margin-left: 210px; / space for sidebar /
+        padding: 30px;
+        margin-left: 210px; /* space for sidebar */
         margin-top: 20px;
-    }
-
-    table {
-        width: 150%;
-        border-collapse: collapse;
-        margin-top: 20px;
-    }
-
-    th, td {
-        padding: 10px;
-        text-align: center;
-        border: 1px solid #ddd;
-    }
-
-    th {
         background-color: #f8f9fa;
+        min-height: calc(100vh - 60px);
     }
 
-    form input, form select, form button {
-        padding: 8px 12px;
-        margin-top: 5px;
-        width: 150%;
-        box-sizing: border-box;
-        border-radius: 6px;
-        border: 1px solid #ccc;
-        font-size: 14px;
-    }
-
-    .modal-content input,
-    .modal-content select,
-    .modal-content button {
-        width: 100% !important;
-    }
-
-
-
-    form label {
-        margin-top: 15px;
-        display: block;
-        font-weight: 600;
-        color: #333;
-    }
-
-    button.btn-primary {
-        background-color: #6f42c1;
-        color: white;
-        border: none;
-        border-radius: 6px;
-        padding: 12px 20px;
-        cursor: pointer;
-        margin-top: 20px;
-        width: auto;
-        font-size: 16px;
-    }
-
-    button.btn-primary:hover {
-        background-color: #512da8;
-    }
-
-    / Modal styles */
-    .modal {
-        position: fixed;
-        z-index: 999;
-        left: 0; top: 0;
-        width: 100%; height: 100%;
-        overflow: auto;
-        background-color: rgba(0,0,0,0.5);
-        display: none;
-        justify-content: center;
-        align-items: center;
-    }
-
-    .modal-content {
-        border: 2px solid purple;
-        border-radius: 12px;
-        padding: 40px;
-        background-color: #fff;
-        max-width: 500px;
-        width: 90%;
-        text-align: center;
-        box-shadow: 0 0 12px rgba(0,0,0,0.05);
-        position: relative;
-    }
-
-    .close {
-        position: absolute;
-        top: 15px;
-        right: 20px;
-        font-size: 28px;
-        font-weight: bold;
-        color: #888;
-        cursor: pointer;
-    }
-
-    .close:hover {
-        color: #000;
-    }
-
-    /* Modal styles (based on your patient details page) */
-    .modal {
-        position: fixed;
-        z-index: 999;
-        left: 0; top: 0;
-        width: 100%; height: 100%;
-        overflow: auto;
-        background-color: rgba(0,0,0,0.5);
-        display: none;
-        justify-content: center;
-        align-items: center;
-    }
-
-    .modal-content {
-        border: 2px solid purple;
-        border-radius: 12px;
-        padding: 40px;
-        background-color: #fff;
-        max-width: 500px;
-        width: 90%;
-        text-align: center;
-        box-shadow: 0 0 12px rgba(0,0,0,0.05);
-        position: relative;
-    }
-
-    .close {
-        position: absolute;
-        top: 15px;
-        right: 20px;
-        font-size: 28px;
-        font-weight: bold;
-        color: #888;
-        cursor: pointer;
-    }
-
-    .close:hover {
-        color: #000;
-    }
-
-    .profile-img {
-        width: 100px;
-        height: 100px;
-        margin: 0 auto 30px;
-        border-radius: 50%;
-        background-color: #f0f0f0;
-        display: flex;
-        justify-content: center;
-        align-items: center;
-    }
-
-    .profile-img img {
-        width: 60px;
-        height: 60px;
-    }
-
-    .info-row {
+    .page-header {
         display: flex;
         justify-content: space-between;
-        margin: 12px 0;
-        font-size: 16px;
-        color: #555;
+        align-items: center;
+        margin-bottom: 30px;
+        padding-bottom: 15px;
+        border-bottom: 1px solid #e0e0e0;
     }
 
-    .info-row strong {
+    .page-title {
+        color: #6f42c1;
+        font-size: 24px;
         font-weight: 600;
-        color: #444;
     }
 
-    .back-link {
-        display: inline-block;
-        margin-top: 30px;
-        text-decoration: none;
-        color: #fff;
-        background-color: #6f42c1;
-        padding: 10px 20px;
+    /* Form Styles */
+    .billing-form {
+        background-color: white;
+        padding: 25px;
+        border-radius: 8px;
+        box-shadow: 0 2px 10px rgba(0,0,0,0.05);
+        margin-bottom: 30px;
+    }
+
+    .form-grid {
+        display: grid;
+        grid-template-columns: repeat(auto-fill, minmax(300px, 1fr));
+        gap: 20px;
+    }
+
+    .form-group {
+        margin-bottom: 15px;
+    }
+
+    .form-group label {
+        display: block;
+        margin-bottom: 8px;
+        font-weight: 500;
+        color: #555;
+        font-size: 14px;
+    }
+
+    .form-control {
+        width: 100%;
+        padding: 10px 12px;
+        border: 1px solid #ddd;
         border-radius: 6px;
         font-size: 14px;
+        transition: border-color 0.3s;
     }
 
-    .back-link:hover {
-        background-color: #512da8;
-    }
-        .modal {
-            display: none;
-            position: fixed;
-            top: 0; left: 0;
-            width: 100%; height: 100%;
-            background: rgba(255, 255, 255, 0.6);
-            justify-content: center;
-            align-items: center;
-        }
-        .modal-content {
-            background: #fff;
-            padding: 20px;
-            border-radius: 8px;
-            width: 500px;
-            position: relative;
-        }
-        .modal-close {
-            position: absolute;
-            top: 10px; right: 10px;
-            cursor: pointer;
-            font-size: 20px;
-        }
-            .btn {
-        padding: 6px 12px;
-        border: none;
-        border-radius: 4px;
-        cursor: pointer;
-        font-size: 14px;
+    .form-control:focus {
+        border-color: #6f42c1;
+        outline: none;
+        box-shadow: 0 0 0 3px rgba(111, 66, 193, 0.1);
     }
 
-    .btn-delete {
-        background-color: #eb6d9b; /* Red */
-        color: white;
+    .form-control[readonly] {
+        background-color: #f5f5f5;
     }
 
-    .btn-delete:hover {
-        background-color: #d32f2f;
-    }
-    .modal-grid {
-        display: flex;
-        gap: 30px;
-        flex-wrap: wrap;
-    }
-
-    .modal-grid > div {
-        flex: 1 1 45%;
-    }
-
-    #modal_selected_medicines {
-        list-style: none;
-        padding-left: 0;
-        max-height: 150px;
-        overflow-y: auto;
+    /* Medicine Section */
+    .medicine-section {
+        grid-column: 1 / -1;
+        background-color: #f9f9f9;
+        padding: 15px;
+        border-radius: 6px;
         margin-top: 10px;
     }
 
-    #modal_selected_medicines li {
-        background-color: #f8f8f8;
-        border: 1px solid #ccc;
-        padding: 6px 10px;
-        margin-bottom: 6px;
-        border-radius: 4px;
-        font-size: 14px;
+    .medicine-search-row {
+        display: flex;
+        gap: 10px;
     }
 
+    .medicine-search-row .form-group {
+        flex: 1;
+    }
 
+    .stock-info {
+        font-size: 14px;
+        color: #666;
+        margin-top: 5px;
+    }
+
+    .btn-add {
+        background-color: #28a745;
+        color: white;
+        margin-top: 20px;
+        border: none;
+        height: 50px;
+        padding: 10px 25px;
+        border-radius: 6px;
+        cursor: pointer;
+        font-size: 14px;
+        transition: background-color 0.3s;
+    }
+
+    .btn-add:hover {
+        background-color: #218838;
+    }
+
+    #selectedMedicines {
+        list-style: none;
+        padding: 0;
+        margin-top: 15px;
+    }
+
+    #selectedMedicines li {
+        background-color: white;
+        border: 1px solid #eee;
+        padding: 10px;
+        margin-bottom: 8px;
+        border-radius: 5px;
+        display: flex;
+        justify-content: space-between;
+        align-items: center;
+    }
+
+    .medicine-item {
+        flex: 1;
+    }
+
+    .remove-medicine {
+        background-color: #dc3545;
+        color: white;
+        border: none;
+        width: 25px;
+        height: 25px;
+        border-radius: 50%;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        cursor: pointer;
+        margin-left: 10px;
+    }
+
+    /* Button Styles */
+    .btn-calculate {
+        background-color: #17a2b8;
+        color: white;
+        border: none;
+        padding: 10px 20px;
+        border-radius: 6px;
+        cursor: pointer;
+        font-size: 14px;
+        margin-top: 15px;
+        transition: background-color 0.3s;
+    }
+
+    .btn-calculate:hover {
+        background-color: #138496;
+    }
+
+    .btn-submit {
+        background-color: #eb6d9b;
+        color: white;
+        border: none;
+        padding: 12px 25px;
+        border-radius: 6px;
+        cursor: pointer;
+        font-size: 16px;
+        margin-top: 20px;
+        transition: background-color 0.3s;
+        display: block;
+        width: 100%;
+    }
+
+    .btn-submit:hover {
+        background-color: #d45d8b;
+    }
+
+    /* Table Styles */
+    .billing-table {
+        width: 100%;
+        border-collapse: collapse;
+        margin-top: 20px;
+        background-color: white;
+        box-shadow: 0 2px 10px rgba(0,0,0,0.05);
+        border-radius: 8px;
+        overflow: hidden;
+    }
+
+    .billing-table th {
+        background-color: #6f42c1;
+        color: white;
+        padding: 12px 15px;
+        text-align: left;
+        font-weight: 500;
+    }
+
+    .billing-table td {
+        padding: 12px 15px;
+        border-bottom: 1px solid #eee;
+        color: #555;
+    }
+
+    .billing-table tr:last-child td {
+        border-bottom: none;
+    }
+
+    .billing-table tr:hover td {
+        background-color: #f8f5ff;
+    }
+
+    .btn-delete {
+        background-color: #dc3545;
+        color: white;
+        border: none;
+        padding: 6px 12px;
+        border-radius: 4px;
+        cursor: pointer;
+        font-size: 14px;
+        transition: background-color 0.3s;
+    }
+
+    .btn-delete:hover {
+        background-color: #c82333;
+    }
+
+    /* Responsive Adjustments */
+    @media (max-width: 768px) {
+        .content {
+            margin-left: 0;
+            padding: 20px 15px;
+        }
+        
+        .form-grid {
+            grid-template-columns: 1fr;
+        }
+    }
+
+    /* Currency styling */
+    .currency {
+        color: #28a745;
+        font-weight: 500;
+    }
     </style>
 </head>
 <body>
 
 <script>
+// Your existing JavaScript remains unchanged
 let selectedMedicinePrices = [];
 
 function setDoctorFee() {
@@ -450,14 +447,20 @@ function setDoctorFee() {
     for (let option of datalist) {
         if (option.value === value) {
             const fee = option.getAttribute("data-fee");
+            const dept = option.getAttribute("data-dept");
+            
             document.getElementById("doctorFeeDisplay").value = "₱" + parseFloat(fee).toFixed(2);
             document.getElementById("doctorFee").value = parseFloat(fee).toFixed(2);
+            
+            // Add department display
+            document.getElementById("doctorDeptDisplay").value = dept || "N/A";
             return;
         }
     }
 
     document.getElementById("doctorFeeDisplay").value = "";
     document.getElementById("doctorFee").value = "";
+    document.getElementById("doctorDeptDisplay").value = "";
 }
 
 function handleEnter(event) {
@@ -473,13 +476,11 @@ function showStock() {
     const stockDisplay = document.getElementById("stockDisplay");
     const options = document.getElementById("medicineList").options;
     
-    // Reset stock display if input is empty
     if (!value) {
         stockDisplay.textContent = "Stock: -";
         return;
     }
     
-    // Find the matching option
     for (let opt of options) {
         if (opt.value === value) {
             const stock = opt.getAttribute("data-stock");
@@ -488,20 +489,16 @@ function showStock() {
         }
     }
     
-    // If no match found
     stockDisplay.textContent = "Stock: -";
 }
 
-// Global variable to track selected medicines with quantities
 let selectedMedicines = [];
 
 function addMedicine() {
     try {
-        // Get input elements
         const input = document.getElementById("medicineSearch");
         const quantityInput = document.getElementById("medicineQuantity");
         
-        // Validate inputs
         if (!input || !quantityInput) {
             console.error("Could not find input elements");
             return;
@@ -515,7 +512,6 @@ function addMedicine() {
             return;
         }
 
-        // Get medicine options
         const options = document.getElementById("medicineList").options;
         if (!options || options.length === 0) {
             console.error("No medicine options found");
@@ -524,7 +520,6 @@ function addMedicine() {
 
         let medicineData = null;
         
-        // Find the selected medicine in datalist
         for (let opt of options) {
             if (opt.value === value) {
                 medicineData = {
@@ -542,20 +537,16 @@ function addMedicine() {
             return;
         }
 
-        // Check stock availability
         if (medicineData.stock < quantity) {
             alert(`Not enough stock! Only ${medicineData.stock} available.`);
             return;
         }
 
-        // Check if medicine already exists in selected list
         const existingIndex = selectedMedicines.findIndex(m => m.id === medicineData.id);
         
         if (existingIndex >= 0) {
-            // Update existing medicine quantity
             selectedMedicines[existingIndex].quantity += quantity;
         } else {
-            // Add new medicine
             selectedMedicines.push({
                 id: medicineData.id,
                 name: medicineData.name,
@@ -564,7 +555,6 @@ function addMedicine() {
             });
         }
 
-        // Update UI
         updateSelectedMedicinesList();
         input.value = "";
         quantityInput.value = "1";
@@ -587,27 +577,15 @@ function updateSelectedMedicinesList() {
         
         selectedMedicines.forEach((med, index) => {
             const li = document.createElement("li");
-            li.style.marginBottom = "8px";
-            li.style.padding = "8px";
-            li.style.borderRadius = "4px";
-            li.style.backgroundColor = "#f8f9fa"; // Added background color
             
-            // Changed from input to span for non-editable quantity
             li.innerHTML = `
-                ${med.name} - 
-                Qty: <span style="display: inline-block; width: 50px; padding: 4px; font-weight: bold;">${med.quantity}</span>
-                × ₱${med.price.toFixed(2)} = ₱${(med.price * med.quantity).toFixed(2)}
-                <button type="button" onclick="removeMedicine(${index})" 
-                        style="margin-left:10px; 
-                               background:rgba(220, 53, 70, 0.39); 
-                               color: white; 
-                               border: none; 
-                               border-radius: 4px; 
-                               padding: 1px 4px;
-                               font-size: 10px;
-                               width: 50px;
-                               height: 25px;
-                               line-height: 20px;">×</button>
+                <div class="medicine-item">
+                    ${med.name} - 
+                    Qty: <strong>${med.quantity}</strong>
+                    × <span class="currency">₱${med.price.toFixed(2)}</span> = 
+                    <span class="currency">₱${(med.price * med.quantity).toFixed(2)}</span>
+                </div>
+                <button type="button" class="remove-medicine" onclick="removeMedicine(${index})">×</button>
             `;
             list.appendChild(li);
         });
@@ -624,28 +602,19 @@ function removeMedicine(index) {
 }
 
 function calculateTotal() {
-    // Update quantities from input fields
-    const quantityInputs = document.querySelectorAll('.medicine-qty');
-    quantityInputs.forEach((input, index) => {
-        selectedMedicines[index].quantity = parseInt(input.value) || 1;
-    });
-
-    // Prepare data
     let total = 0;
     const medicineIds = [];
     const quantities = [];
     
     selectedMedicines.forEach(med => {
         total += med.price * med.quantity;
-        medicineIds.push(med.id); // Just the numeric ID
+        medicineIds.push(med.id);
         quantities.push(med.quantity);
     });
 
-    // Update display
     document.getElementById("medicineTotalDisplay").value = "₱" + total.toFixed(2);
     document.getElementById("medicineTotal").value = total.toFixed(2);
     
-    // Update hidden inputs as comma-separated strings
     document.getElementById("hidden_medicine_ids").value = medicineIds.join(',');
     document.getElementById("hidden_medicine_quantities").value = quantities.join(',');
 }
@@ -653,117 +622,151 @@ function calculateTotal() {
 
 
 <div class="content">
-    <h2>Billing Management</h2>
+    <div class="page-header">
+        <h1 class="page-title">Billing Management</h1>
+    </div>
 
-    <form method="post" action="">
-        <label>Patient Name:</label>
-        <input list="patientList" name="patient_id" id="patient_id_input" placeholder="Select Patient" required>
-        <datalist id="patientList">
-            <?php
-            $patients_result->data_seek(0);
-            while ($p = $patients_result->fetch_assoc()) {
-                echo "<option value='{$p['PatientID']} - " . htmlspecialchars($p['Name']) . "'>";
-            }
-            ?>
-        </datalist>
+    <form method="post" action="" class="billing-form">
+        <div class="form-grid">
+            <!-- Patient Information -->
+            <div class="form-group">
+                <label for="patient_id_input">Patient Name</label>
+                <input list="patientList" class="form-control" name="patient_id" id="patient_id_input" placeholder="Select Patient" required>
+                <datalist id="patientList">
+                    <?php
+                    $patients_result->data_seek(0);
+                    while ($p = $patients_result->fetch_assoc()) {
+                        echo "<option value='{$p['PatientID']} - " . htmlspecialchars($p['Name']) . "'>";
+                    }
+                    ?>
+                </datalist>
+            </div>
 
-        <label>Doctor Name:</label>
-        <input 
-            list="doctorList" 
-            id="doctorSearch" 
-            name="doctor_id" 
-            placeholder="Select Doctor" 
-            onchange="setDoctorFee()" 
-            required>
+            <!-- Doctor Information -->
+            <div class="form-group">
+                <label for="doctorSearch">Doctor Name</label>
+                <input list="doctorList" class="form-control" id="doctorSearch" name="doctor_id" 
+                    placeholder="Select Doctor" onchange="setDoctorFee()" required>
+            </div>
 
-        <datalist id="doctorList">
-            <?php
-            $doctors_result->data_seek(0);
-            while ($d = $doctors_result->fetch_assoc()) {
-                echo "<option value='{$d['DoctorID']} - " . htmlspecialchars($d['DoctorName']) . "' data-fee='{$d['DoctorFee']}'>";
-            }
-            ?>
-        </datalist>
+            <div class="form-group">
+                <label>Department</label>
+                <input type="text" class="form-control" id="doctorDeptDisplay" readonly>
+            </div>
 
-        <label>Doctor Fee:</label>
-        <input type="text" id="doctorFeeDisplay" readonly placeholder="₱">
-        <input type="hidden" name="doctor_fee" id="doctorFee" required>
+            <div class="form-group">
+                <label>Doctor Fee</label>
+                <input type="text" class="form-control" id="doctorFeeDisplay" readonly>
+                <input type="hidden" name="doctor_fee" id="doctorFee" required>
+            </div>
 
-        <label>Search Medicine:</label>
-        <div style="display: flex; align-items: center; gap: 10px;">
-        <input list="medicineList" id="medicineSearch" placeholder="Type to search..." 
-            oninput="showStock()" onchange="showStock()">
-            <span id="stockDisplay" style="font-size: 14px;">Stock: -</span>
+            <datalist id="doctorList">
+                <?php
+                $doctors_result->data_seek(0);
+                while ($d = $doctors_result->fetch_assoc()) {
+                    echo "<option value='{$d['DoctorID']} - " . htmlspecialchars($d['DoctorName']) . "' 
+                        data-fee='{$d['DoctorFee']}'
+                        data-dept='" . htmlspecialchars($d['DepartmentName']) . "'>";
+                }
+                ?>
+            </datalist>
+
+            <!-- Medicine Section -->
+            <div class="medicine-section">
+                <h3 style="margin-top: 0; margin-bottom: 15px; color: #6f42c1;">Medicines</h3>
+                
+                <div class="medicine-search-row">
+                    <div class="form-group">
+                        <label for="medicineSearch">Search Medicine</label>
+                        <input list="medicineList" class="form-control" id="medicineSearch" 
+                            placeholder="Type to search..." oninput="showStock()" onchange="showStock()">
+                        <div id="stockDisplay" class="stock-info">Stock: -</div>
+                    </div>
+                    
+                    <div class="form-group" style="width: 100px;">
+                        <label for="medicineQuantity">Quantity</label>
+                        <input type="number" class="form-control" id="medicineQuantity" min="1" value="1">
+                    </div>
+                    
+                    <button type="button" class="btn-add" onclick="addMedicine()">Add</button>
+                </div>
+                
+                <ul id="selectedMedicines"></ul>
+                
+                <button type="button" class="btn-calculate" onclick="calculateTotal()">Calculate Total</button>
+                
+                <div class="form-group" style="margin-top: 15px;">
+                    <label>Medicine Total</label>
+                    <input type="text" class="form-control" id="medicineTotalDisplay" readonly>
+                    <input type="hidden" name="medicine_total" id="medicineTotal" required>
+                </div>
+            </div>
+
+            <datalist id="medicineList">
+                <?php
+                $medicines_result->data_seek(0);
+                while ($med = $medicines_result->fetch_assoc()) {
+                    echo "<option value='{$med['MedicineID']} - " . htmlspecialchars($med['MedicineName']) . "' 
+                        data-price='{$med['Price']}' 
+                        data-stock='{$med['StockQuantity']}'></option>";
+                }
+                ?>
+            </datalist>
+
+            <!-- Payment Information -->
+            <div class="form-group">
+                <label>Payment Date</label>
+                <input type="date" class="form-control" name="payment_date" value="<?php echo date('Y-m-d'); ?>" readonly required>
+            </div>
+
+            <div class="form-group">
+                <label>Receipt Number</label>
+                <input type="text" class="form-control" name="receipt" value="<?php echo $new_receipt_number; ?>" readonly>
+            </div>
+
+            <input type="hidden" name="medicine_ids" id="hidden_medicine_ids">
+            <input type="hidden" name="medicine_quantities" id="hidden_medicine_quantities">
         </div>
 
-        <label>Quantity:</label>
-        <input type="number" id="medicineQuantity" min="1" value="1" style="width: 60px;">
-
-        <button type="button" onclick="addMedicine()">Add</button>
-        <ul id="selectedMedicines"></ul>
-
-        <button type="button" onclick="calculateTotal()">Calculate Total</button> 
-        <!-- Changed text from "Done" to "Calculate Total" for clarity -->
-
-
-        <input type="hidden" name="medicine_ids" id="hidden_medicine_ids">
-        <input type="hidden" name="medicine_quantities" id="hidden_medicine_quantities">
-
-
-        <label>Medicine Total:</label>
-        <input type="text" id="medicineTotalDisplay" readonly>
-        <input type="hidden" name="medicine_total" id="medicineTotal" required>
-
-        <datalist id="medicineList">
-            <?php
-            $medicines_result->data_seek(0); // Reset pointer to beginning
-            while ($med = $medicines_result->fetch_assoc()) {
-                echo "<option value='{$med['MedicineID']} - " . htmlspecialchars($med['MedicineName']) . "' 
-                    data-price='{$med['Price']}' 
-                    data-stock='{$med['StockQuantity']}'></option>";
-            }
-            ?>
-        </datalist>
-
-        <label>Payment Date:</label>
-        <input type="date" name="payment_date" value="<?php echo date('Y-m-d'); ?>" readonly required>
-
-        <label>Receipt Number:</label>
-        <input type="text" name="receipt" value="<?php echo $new_receipt_number; ?>" readonly>
-
-        <button type="submit" name="add_bill" style="padding: 15px 26px; background-color: #eb6d9b; color: white; border: none; border-radius: 5px; cursor: pointer; margin-top: 20px;">
+        <button type="submit" name="add_bill" class="btn-submit">
             Add Bill
         </button>
     </form>
 
-    <table border="1">
-        <tr>
-            <th>ID</th>
-            <th>Patient</th>
-            <th>Doctor</th>
-            <th>Doctor Fee</th>
-            <th>Medicine Cost</th>
-            <th>Total Amount</th>
-            <th>Payment Date</th>
-            <th>Receipt</th>
-            <th>Action</th>
-        </tr>
-        <?php while ($row = $bills_result->fetch_assoc()): ?>
+    <!-- Billing Table -->
+    <table class="billing-table">
+        <thead>
             <tr>
-                <td><?= $row['BillingID'] ?></td>
-                <td><?= htmlspecialchars($row['PatientName']) ?></td>
-                <td><?= htmlspecialchars($row['DoctorName']) ?></td>
-                <td>₱<?= number_format($row['DoctorFee'], 2) ?></td>
-                <td>₱<?= number_format($row['MedicineCost'], 2) ?></td>
-                <td>₱<?= number_format($row['TotalAmount'], 2) ?></td>
-                <td><?= htmlspecialchars($row['PaymentDate']) ?></td>
-                <td><?= htmlspecialchars($row['Receipt']) ?></td>
-                <td>
-                
-                    <a class="btn btn-delete" href="?delete=<?= $row['BillingID'] ?>" onclick="return confirm('Are you sure?')">Delete</a>
-                </td>
+                <th>ID</th>
+                <th>Patient</th>
+                <th>Doctor</th>
+                <th>Department</th>
+                <th>Doctor Fee</th>
+                <th>Medicine Cost</th>
+                <th>Total Amount</th>
+                <th>Payment Date</th>
+                <th>Receipt</th>
+                <th>Action</th>
             </tr>
-        <?php endwhile; ?>
+        </thead>
+        <tbody>
+            <?php while ($row = $bills_result->fetch_assoc()): ?>
+                <tr>
+                    <td><?= $row['BillingID'] ?></td>
+                    <td><?= htmlspecialchars($row['PatientName']) ?></td>
+                    <td><?= htmlspecialchars($row['DoctorName']) ?></td>
+                    <td><?= htmlspecialchars($row['DepartmentName'] ?? 'N/A') ?></td>
+                    <td class="currency">₱<?= number_format($row['DoctorFee'], 2) ?></td>
+                    <td class="currency">₱<?= number_format($row['MedicineCost'], 2) ?></td>
+                    <td class="currency">₱<?= number_format($row['TotalAmount'], 2) ?></td>
+                    <td><?= htmlspecialchars($row['PaymentDate']) ?></td>
+                    <td><?= htmlspecialchars($row['Receipt']) ?></td>
+                    <td>
+                        <a class="btn-delete" href="?delete=<?= $row['BillingID'] ?>" onclick="return confirm('Are you sure you want to delete this bill?')">Delete</a>
+                    </td>
+                </tr>
+            <?php endwhile; ?>
+        </tbody>
     </table>
 </div>
 

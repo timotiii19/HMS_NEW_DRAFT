@@ -10,28 +10,29 @@ include('../../includes/admin_header.php');
 include('../../includes/admin_sidebar.php');
 include('../../config/db.php');
 
+// Get all users
 function getUsers($conn) {
-    $query = "SELECT users.UserID, users.username, users.full_name, users.email, users.role FROM users";
+    $query = "SELECT UserID, username, full_name, email, role, ContactNumber FROM users";
     $result = mysqli_query($conn, $query);
     return mysqli_fetch_all($result, MYSQLI_ASSOC);
 }
 
-// Handle Add
+// Handle Add User
 if ($_SERVER['REQUEST_METHOD'] == 'POST' && isset($_POST['username'])) {
     $username = mysqli_real_escape_string($conn, $_POST['username']);
     $full_name = mysqli_real_escape_string($conn, $_POST['full_name']);
     $email = mysqli_real_escape_string($conn, $_POST['email']);
     $password = password_hash($_POST['password'], PASSWORD_BCRYPT);
     $role = mysqli_real_escape_string($conn, $_POST['role']);
+    $contact = mysqli_real_escape_string($conn, $_POST['ContactNumber']);
 
     $check_query = "SELECT * FROM users WHERE username = '$username' OR email = '$email'";
     $check_result = mysqli_query($conn, $check_query);
     if (mysqli_num_rows($check_result) > 0) {
-        //$error_message = "Error: Username or Email already exists!";
-        $error_message = "";
+        $error_message = "Username or Email already exists!";
     } else {
-        $query = "INSERT INTO users (username, full_name, email, password, role) 
-                  VALUES ('$username', '$full_name', '$email', '$password', '$role')";
+        $query = "INSERT INTO users (username, full_name, email, password, role, ContactNumber 
+                  VALUES ('$username', '$full_name', '$email', '$password', '$role', '$contact')";
         if (mysqli_query($conn, $query)) {
             $last_user_id = mysqli_insert_id($conn);
             switch ($role) {
@@ -64,15 +65,16 @@ if ($_SERVER['REQUEST_METHOD'] == 'POST' && isset($_POST['username'])) {
     }
 }
 
-// Handle Update
+// Handle Update User
 if ($_SERVER['REQUEST_METHOD'] == 'POST' && isset($_POST['update_user'])) {
     $user_id = mysqli_real_escape_string($conn, $_POST['edit_user_id']);
     $username = mysqli_real_escape_string($conn, $_POST['edit_username']);
     $full_name = mysqli_real_escape_string($conn, $_POST['edit_full_name']);
     $email = mysqli_real_escape_string($conn, $_POST['edit_email']);
     $role = mysqli_real_escape_string($conn, $_POST['edit_role']);
+    $contact = mysqli_real_escape_string($conn, $_POST['edit_ContactNumber']);
 
-    $query = "UPDATE users SET username='$username', full_name='$full_name', email='$email', role='$role' WHERE UserID='$user_id'";
+    $query = "UPDATE users SET username='$username', full_name='$full_name', email='$email', role='$role', ContactNumberr='$contact' WHERE UserID='$user_id'";
     mysqli_query($conn, $query);
     header("Location: employees.php");
     exit();
@@ -114,10 +116,11 @@ if (isset($_GET['delete']) && is_numeric($_GET['delete'])) {
 $users = getUsers($conn);
 ?>
 
+<!-- HTML Output -->
 <!DOCTYPE html>
 <html lang="en">
 <head>
-    <meta charset="UTF-8" />
+    <meta charset="UTF-8">
     <title>Employee Management</title>
     <link rel="stylesheet" href="../../css/style.css" />
     <style>
@@ -311,13 +314,14 @@ button.view-btn:hover {
     </style>
 </head>
 <body>
+
 <div class="content">
     <div class="left-column">
         <h2>User List</h2>
         <table>
             <thead>
             <tr>
-                <th>ID</th><th>Username</th><th>Full Name</th><th>Email</th><th>Role</th><th>Action</th>
+                <th>ID</th><th>Username</th><th>Full Name</th><th>Email</th><th>Contact</th><th>Role</th><th>Action</th>
             </tr>
             </thead>
             <tbody>
@@ -327,6 +331,7 @@ button.view-btn:hover {
                     <td><?= htmlspecialchars($user['username']) ?></td>
                     <td><?= htmlspecialchars($user['full_name']) ?></td>
                     <td><?= htmlspecialchars($user['email']) ?></td>
+                    <td><?= htmlspecialchars($user['ContactNumber']) ?></td>
                     <td><?= ucfirst(htmlspecialchars($user['role'])) ?></td>
                     <td>
                         <a href="javascript:void(0);" class="edit-btn"
@@ -334,11 +339,9 @@ button.view-btn:hover {
                            data-username="<?= htmlspecialchars($user['username']) ?>"
                            data-full_name="<?= htmlspecialchars($user['full_name']) ?>"
                            data-email="<?= htmlspecialchars($user['email']) ?>"
+                           data-contact="<?= htmlspecialchars($user['ContactNumber']) ?>"
                            data-role="<?= htmlspecialchars($user['role']) ?>">Edit</a> |
-                        <a href="employees.php?delete=<?= $user['UserID'] ?>" 
-                            onclick="return confirm('Delete this user?');" 
-                            class="delete-link">Delete</a>
-
+                        <a href="employees.php?delete=<?= $user['UserID'] ?>" onclick="return confirm('Delete this user?');" class="delete-link">Delete</a>
                     </td>
                 </tr>
             <?php endforeach; ?>
@@ -351,19 +354,22 @@ button.view-btn:hover {
         <div class="form-container">
             <form method="POST" action="employees.php">
                 <label for="username">Username</label>
-                <input type="text" id="username" name="username" placeholder="Enter Username" required>
+                <input type="text" name="username" required>
 
                 <label for="full_name">Full Name</label>
-                <input type="text" id="full_name" name="full_name" placeholder="Enter Full Name" required>
+                <input type="text" name="full_name" required>
 
                 <label for="email">Email</label>
-                <input type="email" id="email" name="email" placeholder="Enter Email" required>
+                <input type="email" name="email" required>
+
+                <label for="ContactNumber">Contact Number</label>
+                <input type="text" name="ContactNumber" required>
 
                 <label for="password">Password</label>
-                <input type="password" id="password" name="password" placeholder="Enter Password" required>
+                <input type="password" name="password" required>
 
                 <label for="role">Role</label>
-                <select id="role" name="role" required>
+                <select name="role" required>
                     <option value="">Select Role</option>
                     <option value="Admin">Admin</option>
                     <option value="Doctor">Doctor</option>
@@ -380,28 +386,49 @@ button.view-btn:hover {
 </div>
 
 <!-- Edit Modal -->
-<div id="editModal" style="display:none; position:fixed; top:20%; left:50%; transform:translateX(-50%); background:#f9f9f9; padding:15px; box-shadow:0 0 8px rgba(0,0,0,0.2); z-index:999; font-size:14px; width:350px;">
+<div id="editModal" style="display:none; position:fixed; top:20%; left:50%; transform:translateX(-50%); background:#fff; padding:15px; box-shadow:0 0 8px rgba(0,0,0,0.2); z-index:999; font-size:14px; width:350px;">
     <form method="POST" action="employees.php">
         <input type="hidden" name="edit_user_id" id="edit_user_id">
-        <div><label>Username</label>
-            <input type="text" name="edit_username" id="edit_username" required style="width:100%;"></div>
-        <div><label>Full Name</label>
-            <input type="text" name="edit_full_name" id="edit_full_name" required style="width:100%;"></div>
-        <div><label>Email</label>
-            <input type="email" name="edit_email" id="edit_email" required style="width:100%;"></div>
-        <div><label>Role</label>
-            <select name="edit_role" id="edit_role" required style="width:100%;">
-                <option value="Admin">Admin</option>
-                <option value="Doctor">Doctor</option>
-                <option value="Nurse">Nurse</option>
-                <option value="Pharmacist">Pharmacist</option>
-                <option value="Cashier">Cashier</option>
-            </select>
-        </div>
+        <label>Username</label>
+        <input type="text" name="edit_username" id="edit_username" required>
+        <label>Full Name</label>
+        <input type="text" name="edit_full_name" id="edit_full_name" required>
+        <label>Email</label>
+        <input type="email" name="edit_email" id="edit_email" required>
+        <label>Contact Number</label>
+        <input type="text" name="edit_ContactNumber" id="edit_ContactNumber" required>
+        <label>Role</label>
+        <select name="edit_role" id="edit_role" required>
+            <option value="Admin">Admin</option>
+            <option value="Doctor">Doctor</option>
+            <option value="Nurse">Nurse</option>
+            <option value="Pharmacist">Pharmacist</option>
+            <option value="Cashier">Cashier</option>
+        </select>
         <div style="margin-top:10px; text-align:right;">
-            <button type="submit" name="update_user" style="padding:5px 10px;">Update</button>
-            <button type="button" onclick="document.getElementById('editModal').style.display='none'" style="padding:5px 10px;">Cancel</button>
+            <button type="submit" name="update_user">Update</button>
+            <button type="button" onclick="document.getElementById('editModal').style.display='none'">Cancel</button>
         </div>
+    </form>
+</div>
+
+<!-- PDF Button & Modal -->
+<div id="pdf-button-container" style="position:fixed; bottom:20px; right:20px;">
+    <button onclick="document.getElementById('filterModal').style.display='block'" class="btn btn-primary">Generate PDF</button>
+</div>
+
+<div id="filterModal" style="display:none; position:fixed; bottom:70px; right:20px; background:#fff; border:1px solid #ccc; padding:10px; z-index:10000;">
+    <form method="POST" action="generate_user_pdf.php">
+        <label for="role">Filter Role:</label>
+        <select name="role">
+            <option value="all">All</option>
+            <option value="Doctor">Doctor</option>
+            <option value="Nurse">Nurse</option>
+            <option value="Pharmacist">Pharmacist</option>
+            <option value="Admin">Admin</option>
+            <option value="Cashier">Cashier</option>
+        </select>
+        <button type="submit">Generate PDF</button>
     </form>
 </div>
 
@@ -412,6 +439,7 @@ document.querySelectorAll('.edit-btn').forEach(btn => {
         document.getElementById('edit_username').value = this.dataset.username;
         document.getElementById('edit_full_name').value = this.dataset.full_name;
         document.getElementById('edit_email').value = this.dataset.email;
+        document.getElementById('edit_ContactNumber').value = this.dataset.contact;
         document.getElementById('edit_role').value = this.dataset.role;
         document.getElementById('editModal').style.display = 'block';
     });
@@ -420,5 +448,4 @@ document.querySelectorAll('.edit-btn').forEach(btn => {
 
 </body>
 </html>
-
 <?php ob_end_flush(); ?>

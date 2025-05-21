@@ -10,27 +10,46 @@ if (!$doctor_id) {
     exit();
 }
 
-// Handle update
-if (isset($_POST['update_doctor'])) {
-    $availability = $_POST['availability'];
-    $contact = $_POST['contact'];
-    $doctor_type = $_POST['doctor_type'];
-    $department_id = $_POST['department_id'];
-    $doctor_fee = $_POST['doctor_fee'];
-
-    $stmt = $conn->prepare("UPDATE doctor SET Availability=?, ContactNumber=?, DoctorType=?, DepartmentID=?, DoctorFee=? WHERE DoctorID=?");
-    $stmt->bind_param("sssisi", $availability, $contact, $doctor_type, $department_id, $doctor_fee, $doctor_id);
-    $stmt->execute();
-    header("Location: doctors.php");
-    exit();
-}
-
-// Fetch doctor details
-$doctor_stmt = $conn->prepare("SELECT d.*, u.email FROM doctor d JOIN users u ON d.UserID = u.UserID WHERE d.DoctorID = ?");
+// Fetch doctor details with user's contact number and email
+$doctor_stmt = $conn->prepare("
+    SELECT d.*, u.email, u.ContactNumber, u.UserID
+    FROM doctor d 
+    JOIN users u ON d.UserID = u.UserID 
+    WHERE d.DoctorID = ?
+");
 $doctor_stmt->bind_param("i", $doctor_id);
 $doctor_stmt->execute();
 $doctor_result = $doctor_stmt->get_result();
 $doctor = $doctor_result->fetch_assoc();
+
+if (!$doctor) {
+    // If no doctor found, redirect
+    header("Location: doctors.php");
+    exit();
+}
+
+// Handle update
+if (isset($_POST['update_doctor'])) {
+    $availability = $_POST['availability'];
+    $contact = $_POST['contact'];            // contact from users table
+    $doctor_type = $_POST['doctor_type'];
+    $department_id = $_POST['department_id'];
+    $doctor_fee = $_POST['doctor_fee'];
+
+    // Update doctor table (except contact)
+    $stmt = $conn->prepare("UPDATE doctor SET Availability=?, DoctorType=?, DepartmentID=?, DoctorFee=? WHERE DoctorID=?");
+    $stmt->bind_param("sssii", $availability, $doctor_type, $department_id, $doctor_fee, $doctor_id);
+    $stmt->execute();
+
+    // Update contact in users table
+    $user_id = $doctor['UserID'];
+    $user_stmt = $conn->prepare("UPDATE users SET ContactNumber=? WHERE UserID=?");
+    $user_stmt->bind_param("si", $contact, $user_id);
+    $user_stmt->execute();
+
+    header("Location: doctors.php");
+    exit();
+}
 
 // Fetch department list
 $departments = $conn->query("SELECT DepartmentID, DepartmentName FROM department");

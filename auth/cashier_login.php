@@ -15,15 +15,19 @@ if ($_SERVER["REQUEST_METHOD"] == "POST") {
         $passwordMatch = password_verify($password, $user['password']) || $password === $user['password'];
 
         if ($passwordMatch) {
+            // ✅ Set all needed session values
             $_SESSION['username'] = $user['username'];
+            $_SESSION['full_name'] = $user['full_name']; // ✅ Must be real name
             $_SESSION['role'] = $user['role'];
-            $_SESSION['user_id'] = $user['UserID'];
+            $_SESSION['UserID'] = $user['UserID']; // Use consistent key: UserID (not user_id)
 
+            // Get cashier-specific role ID
             $roleQuery = "SELECT CashierID AS role_id FROM cashier WHERE UserID = {$user['UserID']}";
             $roleResult = $conn->query($roleQuery);
             if ($roleResult && $roleResult->num_rows == 1) {
                 $_SESSION['role_id'] = $roleResult->fetch_assoc()['role_id'];
             }
+
             header("Location: ../views/cashier/dashboard.php");
             exit();
         } else {
@@ -34,6 +38,7 @@ if ($_SERVER["REQUEST_METHOD"] == "POST") {
     }
 }
 ?>
+
 
 <!DOCTYPE html>
 <html lang="en">

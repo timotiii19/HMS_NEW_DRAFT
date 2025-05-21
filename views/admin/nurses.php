@@ -17,9 +17,22 @@ if (isset($_POST['update_nurse'])) {
     $availability = $_POST['availability'];
     $contact = $_POST['contact'];
 
-    $stmt = $conn->prepare("UPDATE nurse SET Availability=?, ContactNumber=? WHERE NurseID=?");
-    $stmt->bind_param("ssi", $availability, $contact, $nurse_id);
+    // Update nurse availability
+    $stmt = $conn->prepare("UPDATE nurse SET Availability=? WHERE NurseID=?");
+    $stmt->bind_param("si", $availability, $nurse_id);
     $stmt->execute();
+
+    // Get UserID to update users table
+    $result = $conn->query("SELECT UserID FROM nurse WHERE NurseID = $nurse_id");
+    if ($row = $result->fetch_assoc()) {
+        $user_id = $row['UserID'];
+
+        // Update contact in users table
+        $stmt2 = $conn->prepare("UPDATE users SET ContactNumber=? WHERE UserID=?");
+        $stmt2->bind_param("si", $contact, $user_id);
+        $stmt2->execute();
+    }
+
     header("Location: nurses.php");
     exit();
 }
@@ -38,7 +51,7 @@ if (isset($_GET['delete'])) {
 }
 
 // Fetch nurses
-$result = $conn->query("SELECT n.NurseID, u.username AS NurseName, u.email AS Email, n.Availability, n.ContactNumber, n.DepartmentID
+$result = $conn->query("SELECT n.NurseID, u.username AS NurseName, u.email AS Email, u.ContactNumber, n.Availability, n.DepartmentID
                         FROM nurse n
                         JOIN users u ON n.UserID = u.UserID");
 
@@ -103,7 +116,7 @@ include('../../includes/admin_sidebar.php');
         left: 0; top: 0;
         width: 100%; height: 100%;
         background-color: rgba(0,0,0,0.5);
-        display: none; /* hidden by default */
+        display: none;
         justify-content: center;
         align-items: center;
     }

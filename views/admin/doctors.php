@@ -27,9 +27,11 @@ if (isset($_GET['delete'])) {
 }
 
 // Fetch doctors with user info
-$result = $conn->query("SELECT d.DoctorID, u.username AS DoctorName, u.email AS Email, d.Availability, d.ContactNumber, d.DoctorType, d.DepartmentID, d.DoctorFee 
+$result = $conn->query("SELECT d.DoctorID, u.username AS DoctorName, u.email AS Email, d.Availability, u.ContactNumber, d.DoctorType, dep.DepartmentName, d.DoctorFee
                         FROM doctor d 
-                        JOIN users u ON d.UserID = u.UserID");
+                        JOIN users u ON d.UserID = u.UserID
+                        LEFT JOIN department dep ON d.DepartmentID = dep.DepartmentID
+                        ");
 
 ?>
 
@@ -56,7 +58,7 @@ $result = $conn->query("SELECT d.DoctorID, u.username AS DoctorName, u.email AS 
                     <td><?= htmlspecialchars($row['Availability']) ?></td>
                     <td><?= htmlspecialchars($row['ContactNumber']) ?></td>
                     <td><?= htmlspecialchars($row['DoctorType']) ?></td>
-                    <td><?= htmlspecialchars($row['DepartmentID']) ?></td>
+                    <td><?= htmlspecialchars($row['DepartmentName']) ?></td>
                     <td><?= htmlspecialchars($row['DoctorFee']) ?></td>
                     <td>
                         <a href="edit_doctor.php?doctor_id=<?= $row['DoctorID'] ?>">Edit</a> |
