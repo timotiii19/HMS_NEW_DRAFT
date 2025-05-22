@@ -110,6 +110,7 @@ if ($conn) {
     position: relative;
     cursor: pointer;
     font-size: 14px;
+    z-index: 9999;
   }
   .user-dropdown span {
     display: flex;

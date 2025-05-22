@@ -101,7 +101,7 @@ if ($hour < 12) {
             font-size: 16px;
             font-weight: bold;
             box-shadow: 2px 2px 6px rgba(0,0,0,0.2);
-            z-index: 9999;
+            z-index: 1;
         }
     </style>
 </head>

@@ -27,7 +27,7 @@
     <li><a href="/HMS-main/views/admin/location.php"><i class="fa fa-map-marker-alt"></i><span class="label">Locations</span></a></li>
     <li><a href="/HMS-main/views/admin/reports.php"><i class="fa fa-file-invoice-dollar"></i><span class="label">Billing</span></a></li>
     <li><a href="/HMS-main/views/admin/patients.php"><i class="fa fa-procedures"></i><span class="label">Patients</span></a></li>
-    <li><a href="/HMS-main/auth/logout.php"><i class="fa fa-sign-out-alt"></i><span class="label">Logout</span></a></li>
+   <!-- <li><a href="/HMS-main/auth/logout.php"><i class="fa fa-sign-out-alt"></i><span class="label">Logout</span></a></li>-->
   </ul>
 </div>
 
@@ -189,6 +189,7 @@
     padding-left: 0;        /* remove left padding */
     margin: 0;              /* remove margin-top that pushes it down */
     background-color: #923f78;
+    width: 190px;
   }
 
   .dropdown-content li a {
