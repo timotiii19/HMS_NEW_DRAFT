@@ -105,11 +105,6 @@ $cashier_name = $_SESSION['username'];
             <div class="card-title">Patient Billing</div>
         </a>
 
-        <a href="/HMS-main/views/cashier/patient.php" class="card">
-            <i class="fas fa-procedures"></i> <!-- matched icon for Patient -->
-            <div class="card-title">Patient</div>
-        </a>
-
         <a href="/HMS-main/views/cashier/pharmacy.php" class="card">
             <i class="fas fa-pills"></i> <!-- matched icon for Pharmacy -->
             <div class="card-title">Pharmacy</div>

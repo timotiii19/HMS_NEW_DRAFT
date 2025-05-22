@@ -52,60 +52,38 @@ if (isset($_POST['add_bill'])) {
         $stmt->bind_param("iidddss", $patient_id, $doctor_id, $doctor_fee, $medicine_total, $total, $payment_date, $receipt);
         $stmt->execute();
 
-        // Handle medicine stock updates
-if (!empty($_POST['medicine_ids']) && !empty($_POST['medicine_quantities'])) {
-    // Convert input to arrays consistently
-    $medicine_ids = is_array($_POST['medicine_ids']) ? 
-        $_POST['medicine_ids'] : 
-        explode(',', $_POST['medicine_ids']);
-    
-    $quantities = is_array($_POST['medicine_quantities']) ? 
-        $_POST['medicine_quantities'] : 
-        explode(',', $_POST['medicine_quantities']);
+        // Handle medicine stock updates and record in patientmedication
+        if (!empty($_POST['medicine_ids']) && !empty($_POST['medicine_quantities'])) {
+            $medicine_ids = is_array($_POST['medicine_ids']) ? 
+                $_POST['medicine_ids'] : 
+                explode(',', $_POST['medicine_ids']);
+            
+            $quantities = is_array($_POST['medicine_quantities']) ? 
+                $_POST['medicine_quantities'] : 
+                explode(',', $_POST['medicine_quantities']);
 
-    // Debug output
-    error_log("Medicine IDs (type: " . gettype($medicine_ids) . "): " . print_r($medicine_ids, true));
-    error_log("Quantities (type: " . gettype($quantities) . "): " . print_r($quantities, true));
+            // Verify counts match
+            if (count($medicine_ids) !== count($quantities)) {
+                throw new Exception("Medicine IDs and quantities count mismatch");
+            }
 
-    // Verify we have valid arrays
-    if (!is_array($medicine_ids) || !is_array($quantities)) {
-        throw new Exception("Medicine data is not in valid format");
-    }
-
-    // Verify counts match
-    if (count($medicine_ids) !== count($quantities)) {
-        throw new Exception("Medicine IDs and quantities count mismatch");
-    }
-
-    for ($i = 0; $i < count($medicine_ids); $i++) {
-        // Extract just the numeric ID part (handles "ID - Name" format)
-        $med_id = (int)$medicine_ids[$i];
-        $qty = (int)$quantities[$i];
-        
-        // Skip if invalid values
-        if ($med_id <= 0 || $qty <= 0) {
-            error_log("Skipping invalid entry: MedicineID=$med_id, Quantity=$qty");
-            continue;
+            for ($i = 0; $i < count($medicine_ids); $i++) {
+                $med_id = (int)$medicine_ids[$i];
+                $qty = (int)$quantities[$i];
+                
+                if ($med_id <= 0 || $qty <= 0) continue;
+                
+                // Update stock
+                $update_stmt = $conn->prepare("UPDATE Pharmacy SET StockQuantity = StockQuantity - ? WHERE MedicineID = ?");
+                $update_stmt->bind_param("ii", $qty, $med_id);
+                $update_stmt->execute();
+                
+                // Record in patientmedication (using PatientID only)
+                $med_stmt = $conn->prepare("INSERT INTO patientmedication (PatientID, MedicineID, QuantityUsed) VALUES (?, ?, ?)");
+                $med_stmt->bind_param("iii", $patient_id, $med_id, $qty);
+                $med_stmt->execute();
+            }
         }
-        
-        // Debug output
-        error_log("Processing: MedicineID=$med_id, Quantity=-$qty");
-        
-        $update_stmt = $conn->prepare("UPDATE Pharmacy SET StockQuantity = StockQuantity - ? WHERE MedicineID = ?");
-        $update_stmt->bind_param("ii", $qty, $med_id);
-        
-        if (!$update_stmt->execute()) {
-            error_log("Update failed for MedicineID $med_id: " . $update_stmt->error);
-            throw new Exception("Failed to update stock for MedicineID $med_id");
-        }
-        
-        // Verify the update worked
-        $affected = $update_stmt->affected_rows;
-        error_log("Update affected $affected rows for MedicineID $med_id");
-        
-        $update_stmt->close();
-    }
-}
 
         $conn->commit();
         $_SESSION['success_message'] = "Bill added successfully!";
@@ -120,65 +98,58 @@ if (!empty($_POST['medicine_ids']) && !empty($_POST['medicine_quantities'])) {
     }
 }
 
-
-// Update bill
-if (isset($_POST['update_bill'])) {
-    $billing_id = $_POST['billing_id'];  // <-- get billing ID
-
-    $patient_id = $_POST['patient_id'];
-    $doctor_fee = (float) $_POST['doctor_fee'];
-    $medicine_total = (float) $_POST['medicine_total'];
-    $total = $doctor_fee + $medicine_total;
-    $payment_date = $_POST['payment_date'];
-    $receipt = $_POST['receipt'];
-    $doctor_id = $_POST['doctor_id'];
-
-    $stmt = $conn->prepare("UPDATE patientbilling SET PatientID=?, DoctorID=?, DoctorFee=?, MedicineCost=?, TotalAmount=?, PaymentDate=?, Receipt=? WHERE BillingID=?");
-    $stmt->bind_param("iidddssi", $patient_id, $doctor_id, $doctor_fee, $medicine_total, $total, $payment_date, $receipt, $billing_id);
-
-    if (!$stmt->execute()) {
-        die("Update failed: " . $stmt->error);
-    }
-
-    header("Location: patient_billing.php");
-    exit();
-}
-
-
 // Delete bill
 if (isset($_GET['delete'])) {
     $id = (int)$_GET['delete'];
-    $stmt = $conn->prepare("SELECT PatientID FROM patientbilling WHERE BillingID = ?");
-    $stmt->bind_param("i", $id);
-    $stmt->execute();
-    $result = $stmt->get_result();
-
-    if ($result && $result->num_rows > 0) {
-        $row = $result->fetch_assoc();
-        $patientID = $row['PatientID'];
-
-        $stmt = $conn->prepare("DELETE FROM patientbilling WHERE BillingID = ?");
+    $conn->begin_transaction();
+    
+    try {
+        // First get the patient ID
+        $stmt = $conn->prepare("SELECT PatientID FROM patientbilling WHERE BillingID = ?");
         $stmt->bind_param("i", $id);
         $stmt->execute();
+        $result = $stmt->get_result();
 
-        header("Location: patient_billing.php?patient_id=$patientID");
+        if ($result && $result->num_rows > 0) {
+            $row = $result->fetch_assoc();
+            $patientID = $row['PatientID'];
+
+            // Delete from patientbilling first
+            $del_bill_stmt = $conn->prepare("DELETE FROM patientbilling WHERE BillingID = ?");
+            $del_bill_stmt->bind_param("i", $id);
+            $del_bill_stmt->execute();
+
+            $conn->commit();
+            header("Location: patient_billing.php?patient_id=$patientID");
+            exit();
+        } else {
+            throw new Exception("Billing entry not found.");
+        }
+    } catch (Exception $e) {
+        $conn->rollback();
+        $_SESSION['error_message'] = "Error: " . $e->getMessage();
+        header("Location: patient_billing.php");
         exit();
-    } else {
-        echo "Error: Billing entry not found.";
     }
 }
 
-// Fetch bills with department
+// Fetch bills with department info (simple query without medicine details)
 $bills_result = $conn->query("
-    SELECT b.*, p.PatientID, p.Name AS PatientName, 
-           d.DoctorID, d.DoctorName, dept.DepartmentName
+    SELECT 
+        b.*, 
+        p.PatientID, 
+        p.Name AS PatientName, 
+        d.DoctorID, 
+        d.DoctorName, 
+        dept.DepartmentName
     FROM patientbilling b
     JOIN patients p ON b.PatientID = p.PatientID
     JOIN doctor d ON b.DoctorID = d.DoctorID
     LEFT JOIN department dept ON d.DepartmentID = dept.DepartmentID
+    ORDER BY b.PaymentDate DESC
 ");
-?>
 
+?>
 <!DOCTYPE html>
 <html lang="en">
 <head>
@@ -401,6 +372,30 @@ $bills_result = $conn->query("
         background-color: #f8f5ff;
     }
 
+    .action-buttons {
+    margin-top: 10px; /* Space above the buttons */
+    display: flex;
+    flex-direction: column; /* Stacks them vertically */
+    gap: 6px; /* Space between the buttons */
+    }
+
+    .btn-receipt {
+        background-color: #17a2b8;
+        color: white;
+        border: none;
+        padding: 6px 12px;
+        border-radius: 4px;
+        cursor: pointer;
+        font-size: 14px;
+        transition: background-color 0.3s;
+        text-decoration: none;
+        display: inline-block;
+        margin-left: 5px;
+    }
+    .btn-receipt:hover {
+        background-color: #138496;
+    }
+
     .btn-delete {
         background-color: #dc3545;
         color: white;
@@ -410,6 +405,9 @@ $bills_result = $conn->query("
         cursor: pointer;
         font-size: 14px;
         transition: background-color 0.3s;
+        text-decoration: none;
+        margin-left: 5px;
+        text-align: center;
     }
 
     .btn-delete:hover {
@@ -751,24 +749,47 @@ function calculateTotal() {
                 <th>Action</th>
             </tr>
         </thead>
-        <tbody>
-            <?php while ($row = $bills_result->fetch_assoc()): ?>
-                <tr>
-                    <td><?= $row['BillingID'] ?></td>
-                    <td><?= htmlspecialchars($row['PatientName']) ?></td>
-                    <td><?= htmlspecialchars($row['DoctorName']) ?></td>
-                    <td><?= htmlspecialchars($row['DepartmentName'] ?? 'N/A') ?></td>
-                    <td class="currency">₱<?= number_format($row['DoctorFee'], 2) ?></td>
-                    <td class="currency">₱<?= number_format($row['MedicineCost'], 2) ?></td>
-                    <td class="currency">₱<?= number_format($row['TotalAmount'], 2) ?></td>
-                    <td><?= htmlspecialchars($row['PaymentDate']) ?></td>
-                    <td><?= htmlspecialchars($row['Receipt']) ?></td>
-                    <td>
-                        <a class="btn-delete" href="?delete=<?= $row['BillingID'] ?>" onclick="return confirm('Are you sure you want to delete this bill?')">Delete</a>
-                    </td>
-                </tr>
-            <?php endwhile; ?>
-        </tbody>
+<tbody>
+    <?php 
+    $bills_result->data_seek(0); // Reset pointer if needed
+    while ($row = $bills_result->fetch_assoc()): 
+        // Fetch medicines for this patient
+        $med_stmt = $conn->prepare("
+            SELECT ph.MedicineName, pm.QuantityUsed, ph.Price 
+            FROM patientmedication pm
+            JOIN Pharmacy ph ON pm.MedicineID = ph.MedicineID
+            WHERE pm.PatientID = ? AND pm.QuantityUsed > 0
+        ");
+        $med_stmt->bind_param("i", $row['PatientID']);
+        $med_stmt->execute();
+        $med_result = $med_stmt->get_result();
+        $medicines = $med_result->fetch_all(MYSQLI_ASSOC);
+    ?>
+        <tr>
+            <td><?= $row['BillingID'] ?></td>
+            <td><?= htmlspecialchars($row['PatientName']) ?></td>
+            <td><?= htmlspecialchars($row['DoctorName']) ?></td>
+            <td><?= htmlspecialchars($row['DepartmentName'] ?? 'N/A') ?></td>
+            <td class="currency">₱<?= number_format($row['DoctorFee'], 2) ?></td>
+            <td class="currency">₱<?= number_format($row['MedicineCost'], 2) ?></td>
+            <td class="currency">₱<?= number_format($row['TotalAmount'], 2) ?></td>
+            <td><?= htmlspecialchars($row['PaymentDate']) ?></td>
+            <td><?= htmlspecialchars($row['Receipt']) ?></td>
+            <td>
+            <div class="action-buttons">
+                <a class="btn-delete" href="?delete=<?= $row['BillingID'] ?>" onclick="return confirm('Are you sure you want to delete this bill?')">Delete</a>
+                <a class="btn-receipt" href="generate_receipt.php?billing_id=<?= $row['BillingID'] ?>">Receipt</a>
+            </div>
+            </td>
+        </tr>
+        <?php if (!empty($medicines)): ?>
+        <tr>
+                </div>
+            </td>
+        </tr>
+        <?php endif; ?>
+    <?php endwhile; ?>
+</tbody>
     </table>
 </div>
 

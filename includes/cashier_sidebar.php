@@ -190,11 +190,6 @@
       </a>
     </li>
     <li>
-      <a href="/HMS-main/views/cashier/patient.php">
-        <i class="fas fa-procedures"></i><span class="label">Patient</span>
-      </a>
-    </li>
-    <li>
       <a href="/HMS-main/views/cashier/pharmacy.php">
         <i class="fas fa-pills"></i><span class="label">Pharmacy</span>
       </a>
