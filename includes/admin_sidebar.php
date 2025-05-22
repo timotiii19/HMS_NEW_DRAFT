@@ -33,17 +33,14 @@
 
 
 <script>
-  // Get all dropdown buttons
   const dropdownBtns = document.querySelectorAll('.dropdown-btn');
   const sidebarToggle = document.getElementById('sidebarToggle');
   const sidebar = document.getElementById('sidebar');
   const content = document.querySelector('.content');
 
-  // Ensure dropdowns open only on click, not hover
   dropdownBtns.forEach(btn => {
     btn.addEventListener('click', (e) => {
-      e.preventDefault(); // Prevent default link behavior
-
+      e.preventDefault();
       const dropdownContent = btn.nextElementSibling;
       const isOpen = btn.classList.contains('active');
 
@@ -64,18 +61,15 @@
     });
   });
 
-  // Sidebar toggle handler
   sidebarToggle.addEventListener('click', () => {
     sidebar.classList.toggle('collapsed');
-
-    // Adjust main content margin
     if (sidebar.classList.contains('collapsed')) {
       content.style.marginLeft = '60px';
     } else {
       content.style.marginLeft = '220px';
     }
 
-    // Fully close any open dropdowns
+    // Close all dropdowns when sidebar toggled
     dropdownBtns.forEach(btn => {
       btn.classList.remove('active');
       const dropdownContent = btn.nextElementSibling;
@@ -192,14 +186,14 @@
   .dropdown-content {
     display: none;
     list-style-type: none;
-    padding-left: 10px;
+    padding-left: 0;        /* remove left padding */
+    margin: 0;              /* remove margin-top that pushes it down */
     background-color: #923f78;
-    margin-top: 5px;
   }
 
   .dropdown-content li a {
     display: block;
-    padding: 6px 8px;
+    padding: 6px 8px 6px 25px;  /* slight indent inside link */
     font-size: 0.85em !important;
     opacity: 0.9;
     color: white;
@@ -210,6 +204,7 @@
     background-color: #7a0154;
     border-radius: 4px;
   }
+
 
   .sidebar .dropdown-content li a {
     padding-left: 30px !important;

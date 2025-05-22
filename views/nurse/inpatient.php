@@ -164,7 +164,7 @@ include('../../includes/nurse_sidebar.php');
 <div id="detailModal" class="modal">
     <div class="modal-content">
         <span class="close" onclick="closeModal()">&times;</span>
-        <div class="profile-img"><img src="../../assets/patient-icon.png" alt="Patient"></div>
+        <div class="profile-img"><img src="../../images/profile.png" alt="Patient"></div>
         <div class="info-row"><strong>Patient ID:</strong> <span id="modalPatientID"></span></div>
         <div class="info-row"><strong>Name:</strong> <span id="modalName"></span></div>
         <div class="info-row"><strong>Gender:</strong> <span id="modalSex"></span></div>

@@ -183,7 +183,7 @@ if (isset($_SESSION['role']) && $_SESSION['role'] === 'Doctor' && isset($_SESSIO
     background-color:rgb(255, 255, 255);
     min-height: 100vh;
     box-sizing: border-box;
-    margin-top: -30px;
+    margin-top: 10px;
 }
 
 .card-container {

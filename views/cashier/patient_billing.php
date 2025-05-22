@@ -187,9 +187,9 @@ $bills_result = $conn->query("
     <style>
     /* Main Content Styles */
     .content {
-        padding: 30px;
+        padding: 40px;
         margin-left: 210px; /* space for sidebar */
-        margin-top: 20px;
+        margin-top: 10px;
         background-color: #f8f9fa;
         min-height: calc(100vh - 60px);
     }
@@ -216,6 +216,7 @@ $bills_result = $conn->query("
         border-radius: 8px;
         box-shadow: 0 2px 10px rgba(0,0,0,0.05);
         margin-bottom: 30px;
+        width: 1195px;
     }
 
     .form-grid {
@@ -226,6 +227,7 @@ $bills_result = $conn->query("
 
     .form-group {
         margin-bottom: 15px;
+        margin-left:
     }
 
     .form-group label {
@@ -233,12 +235,12 @@ $bills_result = $conn->query("
         margin-bottom: 8px;
         font-weight: 500;
         color: #555;
-        font-size: 14px;
+        font-size: 17px;
     }
 
     .form-control {
         width: 100%;
-        padding: 10px 12px;
+        padding: 10px 0px;
         border: 1px solid #ddd;
         border-radius: 6px;
         font-size: 14px;
@@ -282,11 +284,11 @@ $bills_result = $conn->query("
     .btn-add {
         background-color: #28a745;
         color: white;
-        margin-top: 20px;
+        margin-top: 24px;
         border: none;
-        height: 50px;
+        height: 40px;
         padding: 10px 25px;
-        border-radius: 6px;
+        border-radius: 8px;
         cursor: pointer;
         font-size: 14px;
         transition: background-color 0.3s;
@@ -352,7 +354,7 @@ $bills_result = $conn->query("
         background-color: #eb6d9b;
         color: white;
         border: none;
-        padding: 12px 25px;
+        padding: 10px 25px;
         border-radius: 6px;
         cursor: pointer;
         font-size: 16px;

@@ -44,7 +44,7 @@ if ($hour < 12) {
             width: calc(100% - 220px);
             box-sizing: border-box;
             transition: all 0.3s ease;
-            margin-top: 20px;
+            margin-top: 40px;
         }
 
         body.sidebar-collapsed .content {
@@ -181,7 +181,7 @@ if ($hour < 12) {
             position: fixed;
             top: 100px;
             right: 20px;
-            background-color:rgb(230, 54, 80);
+            background-color: #9c335a;
             color: white;
             padding: 8px 15px;
             border-radius: 8px;
@@ -235,11 +235,6 @@ if ($hour < 12) {
         <a href="/HMS-main/views/doctors/labprocedure.php" class="card">
             <i class="fa fa-flask"></i>
             <div class="card-title">Lab Procedure</div>
-        </a>
-
-        <a href="/HMS-main/auth/logout.php" class="card">
-            <i class="fa fa-sign-out-alt"></i>
-            <div class="card-title">Logout</div>
         </a>
 
     </div>

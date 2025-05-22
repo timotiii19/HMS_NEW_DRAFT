@@ -55,16 +55,15 @@ $result = $conn->query("SELECT d.DoctorID, u.username AS DoctorName, u.email AS 
                     <td><?= $row['DoctorID'] ?></td>
                     <td><?= htmlspecialchars($row['DoctorName']) ?></td>
                     <td><?= htmlspecialchars($row['Email']) ?></td>
-                    <td><?= htmlspecialchars($row['Availability']) ?></td>
-                    <td><?= htmlspecialchars($row['ContactNumber']) ?></td>
+                    <td><?= htmlspecialchars($row['Availability'] ?? '') ?></td>
+                    <td><?= htmlspecialchars($row['ContactNumber'] ?? '') ?></td>
                     <td><?= htmlspecialchars($row['DoctorType']) ?></td>
-                    <td><?= htmlspecialchars($row['DepartmentName']) ?></td>
+                    <td><?= htmlspecialchars($row['DepartmentName'] ?? '') ?></td>
                     <td><?= htmlspecialchars($row['DoctorFee']) ?></td>
                     <td>
-                        <a href="edit_doctor.php?doctor_id=<?= $row['DoctorID'] ?>">Edit</a> |
-                         <a href="employees.php?delete=<?= $user['DoctorID'] ?>" 
-                            onclick="return confirm('Are you sure?');" 
-                            class="delete-link">Delete</a>
+                      <a href="doctors.php?delete=<?= $row['DoctorID'] ?>" 
+                        onclick="return confirm('Are you sure?');" 
+                        class="delete-link">Delete</a>
                     </td>
                 </tr>
             <?php endwhile; ?>

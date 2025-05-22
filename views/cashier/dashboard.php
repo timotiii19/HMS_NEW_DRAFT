@@ -91,7 +91,7 @@ $cashier_name = $_SESSION['username'];
 </head>
 <body>
 <div class="content">
-    <h3>Welcome, <?php echo htmlspecialchars($cashier_name); ?>!</h3>
+    <h3>Welcome, Cashier <?php echo htmlspecialchars($cashier_name); ?>!</h3>
     <p>This is your cashier dashboard. Use the cards below to manage your tasks.</p>
 
     <div class="dashboard-cards">

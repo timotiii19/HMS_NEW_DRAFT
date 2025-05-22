@@ -253,7 +253,7 @@ $result = $conn->query($sql);
                         <td><?= htmlspecialchars($row['CreatedAt']) ?></td>
                         <td><?= htmlspecialchars($row['CashierName']) ?></td>
                         <td>
-                            <a href="?download=pdf&billing_id=<?= $row['BillingID'] ?>" target="_blank" class="btn-download">Download PDF</a>
+                           <a href="export_billing_pdf.php?billing_id=<?= $row['BillingID'] ?>" target="_blank" class="btn-download">Download PDF</a>
                         </td>
                     </tr>
                 <?php endwhile; ?>

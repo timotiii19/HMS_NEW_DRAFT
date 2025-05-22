@@ -1,40 +1,48 @@
 <?php
+// doctor_header.php
+
 if (session_status() === PHP_SESSION_NONE) {
     session_start();
 }
 
-// Redirect if not logged in or not a Doctor
-if (!isset($_SESSION['role']) || $_SESSION['role'] !== 'Doctor') {
-    header("Location: /HMS-main/auth/doctor_login.php");
+include_once $_SERVER['DOCUMENT_ROOT'] . '/HMS-main/config/db.php';
+
+// Check if user is logged in and role is Doctor
+if (!isset($_SESSION['UserID'], $_SESSION['role']) || $_SESSION['role'] !== 'Doctor') {
+    // Not logged in as Doctor, redirect to login page
+    header('Location: /HMS-main/auth/doctor_login.php');
     exit();
 }
 
-// Include DB connection
-include_once $_SERVER['DOCUMENT_ROOT'] . '/HMS-main/config/db.php';
-
+$userId = $_SESSION['UserID'];
 $user = [
     'full_name' => '',
     'email' => '',
     'ContactNumber' => '',
     'role' => 'Doctor',
+    'username' => '',
 ];
 
-// Fetch doctor details from DB using UserID from session
+// Fetch fresh user data from DB (optional but recommended)
 if ($conn) {
-    $userId = $_SESSION['UserID'] ?? 0;
-    if ($userId > 0) {
-        $stmt = $conn->prepare("SELECT full_name, email, ContactNumber FROM users WHERE UserID = ?");
-        if ($stmt) {
-            $stmt->bind_param("i", $userId);
-            $stmt->execute();
-            $result = $stmt->get_result();
-            if ($row = $result->fetch_assoc()) {
-                $user['full_name'] = $row['full_name'];
-                $user['email'] = $row['email'];
-                $user['ContactNumber'] = $row['ContactNumber'];
+    $stmt = $conn->prepare("SELECT full_name, email, ContactNumber, username FROM users WHERE UserID = ? AND role = 'Doctor' LIMIT 1");
+    if ($stmt) {
+        $stmt->bind_param('i', $userId);
+        $stmt->execute();
+        $result = $stmt->get_result();
+        if ($row = $result->fetch_assoc()) {
+            $user['full_name'] = $row['full_name'];
+            $user['email'] = $row['email'];
+            $user['ContactNumber'] = $row['ContactNumber'];
+            $user['username'] = $row['username'];
+
+
+            // Update session full_name if changed
+            if (!isset($_SESSION['full_name']) || $_SESSION['full_name'] !== $user['full_name']) {
+                $_SESSION['full_name'] = $user['full_name'];
             }
-            $stmt->close();
         }
+        $stmt->close();
     }
 }
 ?>
@@ -62,6 +70,7 @@ if ($conn) {
     padding: 10px 20px;
     z-index: 10;
     box-sizing: border-box;
+    height: 80px;
   }
   .left-section, .right-section {
     display: flex;
@@ -220,7 +229,7 @@ if ($conn) {
 
 <div class="header">
   <div class="left-section">
-    <img src="/HMS-main/images/hosplogo.png" alt="Logo" class="logo" />
+    <img src="/HMS-main/images/hosplogo.png" alt="Hospital Logo" class="logo" />
   </div>
 
   <div class="search-section">
@@ -229,10 +238,10 @@ if ($conn) {
   </div>
 
   <div class="right-section">
-    <img src="/HMS-main/assets/user.png" alt="Avatar" class="avatar" />
+    <img src="/HMS-main/images/profile1.png" alt="User Avatar" class="avatar" />
     <div class="user-dropdown" id="userDropdownToggle">
       <span>
-        Doctor: <?php echo htmlspecialchars($user['full_name']); ?> <i class="fas fa-chevron-down"></i>
+        Doctor: <?php echo htmlspecialchars($_SESSION['full_name'] ?? 'Unknown'); ?> <i class="fas fa-chevron-down"></i>
       </span>
       <div class="dropdown-content" id="userDropdownMenu">
         <button id="openProfileBtn" type="button">My Profile</button>
@@ -248,14 +257,17 @@ if ($conn) {
     <button class="close-btn" aria-label="Close modal" id="closeModalBtn">&times;</button>
     <h3 id="profileModalTitle">My Profile</h3>
     <form id="profileForm">
+      <label for="username">Username</label>
+      <input type="text" id="username" name="username" required value="<?php echo htmlspecialchars($user['username']); ?>" />
+
       <label for="full_name">Full Name</label>
       <input type="text" id="full_name" name="full_name" required value="<?php echo htmlspecialchars($user['full_name']); ?>" />
 
       <label for="email">Email</label>
       <input type="email" id="email" name="email" required value="<?php echo htmlspecialchars($user['email']); ?>" />
 
-      <label for="contact">Contact Number</label>
-      <input type="text" id="contact" name="contact" required value="<?php echo htmlspecialchars($user['ContactNumber']); ?>" />
+      <label for="ContactNumber">Contact Number</label>
+      <input type="text" id="ContactNumber" name="ContactNumber" required value="<?php echo htmlspecialchars($user['ContactNumber']); ?>" />
 
       <label for="role">Role</label>
       <input type="text" id="role" name="role" readonly value="<?php echo htmlspecialchars($user['role']); ?>" />

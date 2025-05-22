@@ -5,6 +5,10 @@ if (!isset($_SESSION['username']) || $_SESSION['role'] != 'Admin') {
     exit();
 }
 
+$can_edit = false;
+
+include('../../includes/admin_header.php');
+include('../../includes/admin_sidebar.php');
 include('../../config/db.php');
 
 // Handle update
@@ -53,8 +57,6 @@ $result = $conn->query("
     JOIN users u ON c.UserID = u.UserID
 ");
 
-include('../../includes/admin_header.php');
-include('../../includes/admin_sidebar.php');
 ?>
 <!DOCTYPE html>
 <html lang="en">
@@ -179,6 +181,7 @@ include('../../includes/admin_sidebar.php');
                             <td><?= htmlspecialchars($row['Email']) ?></td>
                             <td><?= htmlspecialchars($row['ContactNumber']) ?></td>
                             <td>
+                                 <?php if ($can_edit): ?>
                                 <span class="edit-link" onclick="openModal(
                                     <?= $row['CashierID'] ?>,
                                     '<?= htmlspecialchars($row['Name'], ENT_QUOTES) ?>',
@@ -186,6 +189,7 @@ include('../../includes/admin_sidebar.php');
                                     '<?= htmlspecialchars($row['ContactNumber'], ENT_QUOTES) ?>'
                                 )">Edit</span>
                                 |
+                                <?php endif; ?>
                                 <a href="?delete=<?= $row['CashierID'] ?>" class="delete-link" onclick="return confirm('Are you sure?')">Delete</a>
                             </td>
                         </tr>

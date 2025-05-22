@@ -1,14 +1,18 @@
 <?php
 session_start();
+
 if (!isset($_SESSION['username']) || $_SESSION['role'] != 'Admin') {
     header("Location: ../../auth/admin_login.php");
     exit();
 }
 
+$can_edit = false;
+
+include('../../includes/admin_header.php');
 include('../../config/db.php');
 
-if ($conn->connect_error) {
-    die("Connection failed: " . $conn->connect_error);
+if (!$conn) {
+    die("Database connection failed");
 }
 
 // Update nurse
@@ -23,9 +27,9 @@ if (isset($_POST['update_nurse'])) {
     $stmt->execute();
 
     // Get UserID to update users table
-    $result = $conn->query("SELECT UserID FROM nurse WHERE NurseID = $nurse_id");
-    if ($row = $result->fetch_assoc()) {
-        $user_id = $row['UserID'];
+    $result2 = $conn->query("SELECT UserID FROM nurse WHERE NurseID = $nurse_id");
+    if ($row2 = $result2->fetch_assoc()) {
+        $user_id = $row2['UserID'];
 
         // Update contact in users table
         $stmt2 = $conn->prepare("UPDATE users SET ContactNumber=? WHERE UserID=?");
@@ -40,9 +44,9 @@ if (isset($_POST['update_nurse'])) {
 // Delete nurse
 if (isset($_GET['delete'])) {
     $nurse_id = $_GET['delete'];
-    $result = $conn->query("SELECT UserID FROM nurse WHERE NurseID = $nurse_id");
-    if ($row = $result->fetch_assoc()) {
-        $user_id = $row['UserID'];
+    $result3 = $conn->query("SELECT UserID FROM nurse WHERE NurseID = $nurse_id");
+    if ($row3 = $result3->fetch_assoc()) {
+        $user_id = $row3['UserID'];
         $conn->query("DELETE FROM nurse WHERE NurseID = $nurse_id");
         $conn->query("DELETE FROM users WHERE UserID = $user_id");
     }
@@ -50,12 +54,24 @@ if (isset($_GET['delete'])) {
     exit();
 }
 
-// Fetch nurses
-$result = $conn->query("SELECT n.NurseID, u.username AS NurseName, u.email AS Email, u.ContactNumber, n.Availability, n.DepartmentID
-                        FROM nurse n
-                        JOIN users u ON n.UserID = u.UserID");
+// Optional: add filter by DepartmentID or Availability here if you want
+$filter_availability = isset($_GET['availability']) ? $_GET['availability'] : 'all';
 
-include('../../includes/admin_header.php');
+$whereClause = '';
+if ($filter_availability !== 'all') {
+    $whereClause = " AND n.Availability = '" . $conn->real_escape_string($filter_availability) . "'";
+}
+
+$query = "SELECT n.NurseID, u.username AS NurseName, u.email AS Email, u.ContactNumber, n.Availability, n.DepartmentID
+          FROM nurse n
+          JOIN users u ON n.UserID = u.UserID
+          WHERE 1=1 $whereClause";
+
+$result = $conn->query($query);
+if (!$result) {
+    die("SQL error: " . $conn->error);
+}
+
 include('../../includes/admin_sidebar.php');
 ?>
 
@@ -70,45 +86,72 @@ include('../../includes/admin_sidebar.php');
         font-family: Arial, sans-serif;
         background-color: #ffffff;
     }
-
     .content {
         padding: 40px;
     }
-
-    table {
-        width: 100%;
-        border-collapse: collapse;
+    .filter-buttons {
+        margin-bottom: 20px;
+    }
+    .filter-buttons button {
+        background-color: #f8d7da;
+        color: rgb(224, 48, 86);
+        margin-right: 10px;
+        padding: 10px 20px;
+        font-size: 15px;
+        font-weight: bold;
+        border: none;
+        border-radius: 8px;
+        cursor: pointer;
+        transition: 0.3s ease;
+        box-shadow: 0 3px 8px rgba(204, 60, 91, 0.82);
+    }
+    .filter-buttons button:hover {
+        background-color: #f1b0b7;
+        box-shadow: 0 4px 12px rgba(223, 51, 88, 0.76);
+    }
+    .filter-buttons button.active {
+        background-color: #a0223f;
+        color: white;
+        box-shadow: 0 6px 15px rgba(218, 55, 90, 0.79);
+    }
+    .table-container {
+        overflow-x: auto;
         margin-top: 20px;
     }
-
-    th, td {
-        padding: 10px;
+    .responsive-table {
+        width: 100%;
+        max-width: 100%;
+        border-collapse: collapse;
+        min-width: 1000px;
+    }
+    .responsive-table th, .responsive-table td {
+        padding: 12px 15px;
         text-align: center;
         border: 1px solid #ddd;
+        white-space: nowrap;
+        color: #000000;
     }
-
-    th {
+    .responsive-table th {
         background-color: #f8f9fa;
+        color: #000000;
+        font-weight: 600;
     }
-
-    form input, form button {
-        padding: 5px 10px;
-        margin-top: 5px;
+    .edit-link {
+        color: #007bff;
+        cursor: pointer;
+        text-decoration: underline;
     }
-
-    button.view-btn {
-        background-color: #6f42c1;
-        color: white;
-        border: none;
-        border-radius: 6px;
-        padding: 8px 16px;
+    .edit-link:hover {
+        text-decoration: none;
+    }
+    .delete-link {
+        color: #dc3545;
+        text-decoration: underline;
         cursor: pointer;
     }
-
-    button.view-btn:hover {
-        background-color: #512da8;
+    .delete-link:hover {
+        text-decoration: none;
     }
-
     /* Modal styles */
     .modal {
         position: fixed;
@@ -120,7 +163,6 @@ include('../../includes/admin_sidebar.php');
         justify-content: center;
         align-items: center;
     }
-
     .modal-content {
         background-color: #fff;
         padding: 30px;
@@ -131,7 +173,6 @@ include('../../includes/admin_sidebar.php');
         box-shadow: 0 0 15px rgba(0,0,0,0.3);
         text-align: left;
     }
-
     .close {
         position: absolute;
         top: 12px;
@@ -141,71 +182,86 @@ include('../../includes/admin_sidebar.php');
         color: #888;
         cursor: pointer;
     }
-
     .close:hover {
         color: #000;
     }
-
-    .edit-link {
-        color: #007bff;
+    form input, form button {
+        padding: 8px 12px;
+        margin-top: 10px;
+        width: 100%;
+        box-sizing: border-box;
+    }
+    button.save-btn {
+        background-color: #6f42c1;
+        color: white;
+        border: none;
+        border-radius: 6px;
+        padding: 10px;
         cursor: pointer;
-        text-decoration: underline;
+        margin-top: 15px;
+        width: 100%;
+        font-weight: bold;
+        font-size: 16px;
     }
-
-    .edit-link:hover {
-        text-decoration: none;
-    }
-
-    .delete-link {
-        color: #dc3545;
-        text-decoration: underline;
-        cursor: pointer;
-    }
-
-    .delete-link:hover {
-        text-decoration: none;
+    button.save-btn:hover {
+        background-color: #512da8;
     }
 </style>
 </head>
 <body>
 <div class="content">
     <h2>Nurse Management</h2>
-    <table>
-        <tr>
-            <th>NurseID</th>
-            <th>NurseName</th>
-            <th>Email</th>
-            <th>Availability</th>
-            <th>ContactNumber</th>
-            <th>Department</th>
-            <th>Action</th>
-        </tr>
-        <?php if ($result->num_rows > 0): ?>
-            <?php while ($row = $result->fetch_assoc()): ?>
+
+    <div class="filter-buttons">
+        <a href="nurses.php?availability=all"><button class="<?= $filter_availability === 'all' ? 'active' : '' ?>">All</button></a>
+        <a href="nurses.php?availability=Available"><button class="<?= $filter_availability === 'Available' ? 'active' : '' ?>">Available</button></a>
+        <a href="nurses.php?availability=On Leave"><button class="<?= $filter_availability === 'On Leave' ? 'active' : '' ?>">On Leave</button></a>
+    </div>
+
+    <div class="table-container">
+        <table class="responsive-table">
+            <thead>
                 <tr>
-                    <td><?= $row['NurseID'] ?></td>
-                    <td><?= htmlspecialchars($row['NurseName']) ?></td>
-                    <td><?= htmlspecialchars($row['Email']) ?></td>
-                    <td><?= htmlspecialchars($row['Availability']) ?></td>
-                    <td><?= htmlspecialchars($row['ContactNumber']) ?></td>
-                    <td><?= htmlspecialchars($row['DepartmentID']) ?></td>
-                    <td>
-                        <span class="edit-link" 
-                              onclick="showEditForm(
-                                <?= $row['NurseID'] ?>,
-                                '<?= addslashes(htmlspecialchars($row['Availability'])) ?>',
-                                '<?= addslashes(htmlspecialchars($row['ContactNumber'])) ?>',
-                                '<?= addslashes(htmlspecialchars($row['Email'])) ?>'
-                              )">Edit</span>
-                        |
-                        <a href="?delete=<?= $row['NurseID'] ?>" class="delete-link" onclick="return confirm('Are you sure?')">Delete</a>
-                    </td>
+                    <th>NurseID</th>
+                    <th>NurseName</th>
+                    <th>Email</th>
+                    <th>Availability</th>
+                    <th>ContactNumber</th>
+                    <th>Department</th>
+                    <th>Action</th>
                 </tr>
-            <?php endwhile; ?>
-        <?php else: ?>
-            <tr><td colspan="7">No nurse records found.</td></tr>
-        <?php endif; ?>
-    </table>
+            </thead>
+            <tbody>
+            <?php if ($result->num_rows > 0): ?>
+                <?php while ($row = $result->fetch_assoc()): ?>
+                   <tr>
+                        <td><?= $row['NurseID'] ?></td>
+                        <td><?= htmlspecialchars($row['NurseName']) ?></td>
+                        <td><?= htmlspecialchars($row['Email']) ?></td>
+                        <td><?= htmlspecialchars($row['Availability'] ?? '') ?></td>
+                        <td><?= htmlspecialchars($row['ContactNumber'] ?? '') ?></td>
+                        <td><?= htmlspecialchars($row['DepartmentID'] ?? '') ?></td>
+                        <td>
+                             <?php if ($can_edit): ?>
+                            <span class="edit-link" 
+                                onclick="showEditForm(
+                                    <?= $row['NurseID'] ?>,
+                                    '<?= addslashes(htmlspecialchars($row['Availability'] ?? '')) ?>',
+                                    '<?= addslashes(htmlspecialchars($row['ContactNumber'] ?? '')) ?>',
+                                    '<?= addslashes(htmlspecialchars($row['Email'])) ?>'
+                                )">Edit</span>
+                            |
+                            <?php endif; ?>
+                            <a href="?delete=<?= $row['NurseID'] ?>" class="delete-link" onclick="return confirm('Are you sure?')">Delete</a>
+                        </td>
+                    </tr>
+                <?php endwhile; ?>
+            <?php else: ?>
+                <tr><td colspan="7">No nurse records found.</td></tr>
+            <?php endif; ?>
+            </tbody>
+        </table>
+    </div>
 </div>
 
 <!-- Modal Overlay -->
@@ -233,27 +289,29 @@ include('../../includes/admin_sidebar.php');
 </div>
 
 <script>
-    function closeModal() {
-        document.getElementById('editModal').style.display = 'none';
+function closeModal() {
+    document.getElementById('editModal').style.display = 'none';
+}
+
+function showEditForm(nurseID, availability, contact, email) {
+    const modal = document.getElementById('editModal');
+    modal.style.display = 'flex';
+
+    document.getElementById('nurse_id').value = nurseID;
+    document.getElementById('availability').value = availability;
+    document.getElementById('contact').value = contact;
+    document.getElementById('email').value = email;
+}
+
+// Close modal when clicking outside the modal-content
+window.onclick = function(event) {
+    const modal = document.getElementById('editModal');
+    if (event.target === modal) {
+        closeModal();
     }
-
-    function showEditForm(nurseID, availability, contact, email) {
-        const modal = document.getElementById('editModal');
-        modal.style.display = 'flex';
-
-        document.getElementById('nurse_id').value = nurseID;
-        document.getElementById('availability').value = availability;
-        document.getElementById('contact').value = contact;
-        document.getElementById('email').value = email;
-    }
-
-    // Close modal when clicking outside the modal-content
-    window.onclick = function(event) {
-        const modal = document.getElementById('editModal');
-        if (event.target === modal) {
-            closeModal();
-        }
-    };
+};
 </script>
 </body>
 </html>
+
+<?php ob_end_flush(); ?>

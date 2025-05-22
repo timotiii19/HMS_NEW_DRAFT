@@ -12,8 +12,10 @@ $user = [
     'full_name' => '',
     'email' => '',
     'ContactNumber' => '',
-    'role' => '',
+    'role' => 'Cashier',
+    'username' => '',
 ];
+
 
 // Check if user is logged in and UserID session exists
 if (isset($_SESSION['UserID'])) {
@@ -22,7 +24,7 @@ if (isset($_SESSION['UserID'])) {
 
     if ($conn) {
         // Get user info from users table for this UserID
-        $stmt = $conn->prepare("SELECT full_name, email, ContactNumber FROM users WHERE UserID = ?");
+        $stmt = $conn->prepare("SELECT full_name, email, ContactNumber, username FROM users WHERE UserID = ?");
         if ($stmt) {
             $stmt->bind_param("i", $userId);
             $stmt->execute();
@@ -31,6 +33,8 @@ if (isset($_SESSION['UserID'])) {
                 $user['full_name'] = $row['full_name'];
                 $user['email'] = $row['email'];
                 $user['ContactNumber'] = $row['ContactNumber'];
+                $user['username'] = $row['username'];
+
             }
             $stmt->close();
         }
@@ -261,7 +265,7 @@ if (isset($_SESSION['UserID'])) {
     </div>
 
     <div class="right-section">
-      <img src="/HMS-main/assets/user.png" alt="Avatar" class="avatar" />
+      <img src="/HMS-main/images/profile1.png" alt="Avatar" class="avatar" />
       <div class="user-dropdown" id="userDropdownToggle">
         <span>
           <?php
@@ -287,14 +291,17 @@ if (isset($_SESSION['UserID'])) {
       <button class="close-btn" aria-label="Close modal" id="closeModalBtn">&times;</button>
       <h3 id="profileModalTitle">My Profile</h3>
       <form id="profileForm">
+        <label for="username">Username</label>
+        <input type="text" id="username" name="username" required value="<?php echo htmlspecialchars($user['username']); ?>" />
+
         <label for="full_name">Full Name</label>
         <input type="text" id="full_name" name="full_name" required value="<?php echo htmlspecialchars($user['full_name']); ?>" />
 
         <label for="email">Email</label>
         <input type="email" id="email" name="email" required value="<?php echo htmlspecialchars($user['email']); ?>" />
 
-        <label for="contact">Contact Number</label>
-        <input type="text" id="contact" name="contact" required value="<?php echo htmlspecialchars($user['ContactNumber']); ?>" />
+        <label for="ContactNumber">Contact Number</label>
+        <input type="text" id="ContactNumber" name="ContactNumber" required value="<?php echo htmlspecialchars($user['ContactNumber']); ?>" />
 
         <label for="role">Role</label>
         <input type="text" id="role" name="role" readonly value="<?php echo htmlspecialchars($user['role']); ?>" />

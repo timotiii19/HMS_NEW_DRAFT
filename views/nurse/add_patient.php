@@ -211,14 +211,14 @@ button.btn-primary:hover {
             <th>Sex</th>
             <th>Contact</th>
             <th>Type</th>
-            <th>Assigned Nurse</th>
+            <th>Nurse</th>
         </tr>
         </thead>
         <tbody>
         <?php
         $query = "SELECT p.PatientID, p.Name, p.DateOfBirth, p.Sex, p.Contact, p.PatientType, n.Name AS NurseName
                   FROM patients p
-                  LEFT JOIN nurse n ON p.AssignedNurseID = n.NurseID
+                  LEFT JOIN nurse n ON p.NurseID = n.NurseID
                   ORDER BY p.PatientID DESC";
         $result = $conn->query($query);
 

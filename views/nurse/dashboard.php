@@ -120,10 +120,6 @@ if ($hour < 12) {
             <div class="card-icon"><i class="fa fa-users"></i></div>
             <div class="card-title">View Patients</div>
         </a>
-        <a href="my_patients.php" class="card">
-            <div class="card-icon"><i class="fa fa-user-md"></i></div>
-            <div class="card-title">My Patients</div>
-        </a>
         <a href="inpatient.php" class="card">
             <div class="card-icon"><i class="fa fa-bed"></i></div>
             <div class="card-title">Inpatients</div>

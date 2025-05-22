@@ -1,56 +1,41 @@
 <?php
 session_start();
+
 if (!isset($_SESSION['username']) || $_SESSION['role'] != 'Doctor') {
     header("Location: ../../auth/doctor_login.php");
     exit();
 }
 
-include('../../includes/doctor_header.php');
-include('../../includes/doctor_sidebar.php');
 include('../../config/db.php');
-
 date_default_timezone_set('Asia/Manila');
 
-$doctor_name = $_SESSION['username'];
+$doctor_name = $_SESSION['full_name'];
 $doctorID = $_SESSION['role_id'] ?? null;
 
-// Handle new lab request submission
+// Handle new lab request submission BEFORE any output
 if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['new_request'])) {
-    $patientID = $_POST['PatientID'];
-    $doctorID = $_POST['DoctorID'];
+    $patientID = (int)$_POST['PatientID'];
+    $doctorID = (int)$_POST['DoctorID'];
     $testDate = $_POST['TestDate'];
     $procedureName = $_POST['ProcedureName'];
     $status = "Request Submitted";
-    $result = "";
 
-    $stmt = $conn->prepare("INSERT INTO labprocedure (PatientID, DoctorID, TestDate, ProcedureName, Status, Result) VALUES (?, ?, ?, ?, ?, ?)");
-    $stmt->bind_param("iissss", $patientID, $doctorID, $testDate, $procedureName, $status, $result);
+    $stmt = $conn->prepare("INSERT INTO labprocedure (PatientID, DoctorID, TestDate, ProcedureName, Status) VALUES (?, ?, ?, ?, ?)");
+    $stmt->bind_param("iisss", $patientID, $doctorID, $testDate, $procedureName, $status);
     $stmt->execute();
     $stmt->close();
 
-    // Redirect to avoid resubmission on refresh
-    header("Location: labprocedure.php");
+    // Redirect to avoid resubmission
+    header("Location: " . $_SERVER['PHP_SELF']);
     exit();
 }
 
-// Handle updating the result and status inline
-if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['update_result'])) {
-    $labReqID = intval($_POST['LabReqID']);
-    $newResult = $_POST['Result'];
-    $newStatus = 'Done';
+// Include page header and sidebar AFTER handling POST
+include('../../includes/doctor_header.php');
+include('../../includes/doctor_sidebar.php');
 
-    $stmt = $conn->prepare("UPDATE labprocedure SET Result = ?, Status = ? WHERE LabReqID = ?");
-    $stmt->bind_param("ssi", $newResult, $newStatus, $labReqID);
-    $stmt->execute();
-    $stmt->close();
-
-    header("Location: labprocedure.php");
-    exit();
-}
-
-// Fetch lists for dropdowns
-$procedureQuery = "SELECT ProcedureName FROM procedures";
-$procedureResult = mysqli_query($conn, $procedureQuery);
+// Fetch dropdown data
+$procedureResult = mysqli_query($conn, "SELECT ProcedureName FROM procedures");
 $procedures = $procedureResult ? mysqli_fetch_all($procedureResult, MYSQLI_ASSOC) : [];
 
 $patientsResult = mysqli_query($conn, "SELECT PatientID, Name FROM patients");
@@ -59,46 +44,51 @@ $patients = $patientsResult ? mysqli_fetch_all($patientsResult, MYSQLI_ASSOC) : 
 $doctorsResult = mysqli_query($conn, "SELECT DoctorID, DoctorName FROM doctor");
 $doctors = $doctorsResult ? mysqli_fetch_all($doctorsResult, MYSQLI_ASSOC) : [];
 
-// Fetch lab requests
-$requestsQuery = "
-    SELECT lp.*, p.Name AS PatientName, d.DoctorName AS DoctorName 
+// Fetch lab requests from labprocedure directly, no grouping needed
+$requestsResult = mysqli_query($conn, "
+    SELECT lp.LabReqID, lp.PatientID, lp.DoctorID, lp.TestDate, lp.Result, lp.DateReleased, lp.ProcedureName, lp.Status,
+           p.Name AS PatientName,
+           d.DoctorName
     FROM labprocedure lp
     JOIN patients p ON lp.PatientID = p.PatientID
-    JOIN doctor d ON lp.DoctorID = d.DoctorID
-";
-
-$requestsResult = mysqli_query($conn, $requestsQuery);
+    LEFT JOIN doctor d ON lp.DoctorID = d.DoctorID
+    ORDER BY lp.LabReqID ASC
+");
 $labRequests = $requestsResult ? mysqli_fetch_all($requestsResult, MYSQLI_ASSOC) : [];
 
-$hour = date("H");
-
-// Auto update statuses based on time passed
+// Auto-update status based on TestDate difference
+$now = new DateTime();
 foreach ($labRequests as &$req) {
-    $labReqID = $req['LabReqID'];
+    $labReqID = (int)$req['LabReqID'];
     $testDate = new DateTime($req['TestDate']);
-    $now = new DateTime();
     $diffDays = $testDate->diff($now)->days;
     $status = $req['Status'];
 
     if ($status == "Request Submitted" && $diffDays >= 1) {
-        // Update to In Progress after 1 day
         $status = "In Progress";
         mysqli_query($conn, "UPDATE labprocedure SET Status='In Progress' WHERE LabReqID=$labReqID");
     } elseif ($status == "In Progress" && $diffDays >= 3) {
-        // Update to Done after 3 days, if no result yet assign default result
         $status = "Done";
-        if (empty($req['Result'])) {
-            $defaultResult = "Negative"; // Or your logic here
-            mysqli_query($conn, "UPDATE labprocedure SET Status='Done', Result='$defaultResult' WHERE LabReqID=$labReqID");
-            $req['Result'] = $defaultResult;
-        } else {
-            mysqli_query($conn, "UPDATE labprocedure SET Status='Done' WHERE LabReqID=$labReqID");
-        }
+        mysqli_query($conn, "UPDATE labprocedure SET Status='Done' WHERE LabReqID=$labReqID");
     }
     $req['Status'] = $status;
 }
 
+// Refetch lab requests after status update to get fresh data
+$requestsResult = mysqli_query($conn, "
+    SELECT lp.LabReqID, lp.PatientID, lp.DoctorID, lp.TestDate, lp.Result, lp.DateReleased, lp.ProcedureName, lp.Status,
+           p.Name AS PatientName,
+           d.DoctorName
+    FROM labprocedure lp
+    JOIN patients p ON lp.PatientID = p.PatientID
+    LEFT JOIN doctor d ON lp.DoctorID = d.DoctorID
+    ORDER BY lp.LabReqID ASC
+");
+$labRequests = $requestsResult ? mysqli_fetch_all($requestsResult, MYSQLI_ASSOC) : [];
+
+$hour = date("H");
 ?>
+
 <!DOCTYPE html>
 <html lang="en">
 <head>
@@ -106,30 +96,47 @@ foreach ($labRequests as &$req) {
     <title>Lab Procedures</title>
     <link rel="stylesheet" href="../../css/style.css">
     <style>
-        /* Your existing styles */
-        .content { padding: 40px; margin-left: 230px; }
+        .content { padding: 40px; margin-left: 230px; background: white; margin-top: -30px;}
         .card-box { background: #fff; padding: 30px; border-radius: 12px; border: 4px solid #c34b4b; box-shadow: 6px 6px 0px #e58585; margin-bottom: 40px; }
-        .form-label { font-weight: bold; }
-        .btn-submit { background-color: rgb(221, 106, 106); color: white; border: none; padding: 12px; width: 100%; border-radius: 10px; font-weight: bold; margin-top: 20px; }
+        .form-label { font-weight: bold; width: 30; }
+        .btn-submit { background-color: rgb(221, 106, 106); color: white; border: none; padding: 12px; width: 100%; border-radius: 10px; font-weight: bold; margin-top: 20px; cursor: pointer; }
         table { width: 100%; border-collapse: collapse; margin-top: 30px; }
         table th, table td { border: 1px solid #ddd; padding: 10px; text-align: center; }
         table th { background-color: #f5bebe; color: rgb(248, 64, 64); }
-        .form-row { display: flex; flex-wrap: wrap; gap: 20px; }
-        .form-group { flex: 1; min-width: 220px; }
-        select, input[type="text"], input[type="date"], input[type="datetime-local"], textarea {
-            width: 100%; padding: 10px; border-radius: 8px; border: 2px solid #ccc;
+       .form-row {
+            display: flex;
+            flex-wrap: nowrap;
+            gap: 30px;
+            justify-content: space-between;
+            align-items: flex-start;
         }
-        textarea { resize: vertical; }
-        .inline-form { display: inline-block; margin: 0; }
-        .btn-update { background-color: #4CAF50; color: white; border: none; padding: 6px 12px; border-radius: 6px; cursor: pointer; }
+        h3 {
+            font-size: 28px;
+            color:rgb(27, 26, 26);
+        }
+
+        /* General form groups */
+        .form-group {
+            display: flex;
+            flex-direction: column;
+            flex: 1 1 260px; /* default: grow & shrink, min 220px */
+            min-width: 220px;
+        }
+
+        /* Make Test Date smaller */
+        .form-group.testdate {
+            flex: 0 0 260px;  /* fixed width 160px, no grow or shrink */
+            min-width: 160px;
+}
+        select, input[type="datetime-local"] {
+            width: 85%; padding: 10px; border-radius: 8px; border: 2px solid #ccc;
+        }
     </style>
 </head>
 <body>
 <div class="content">
-    <h3><?= "Good " . ($hour < 12 ? "Morning" : ($hour < 18 ? "Afternoon" : "Evening")) . ", Dr. " . htmlspecialchars($doctor_name); ?>!</h3>
-    <p class="subtitle">Submit Lab Requests:</p>
+    <h3>Submit Lab Requests:</h3>
 
-    <!-- New Request Form -->
     <div class="card-box">
         <form method="POST">
             <input type="hidden" name="new_request" value="1">
@@ -139,19 +146,15 @@ foreach ($labRequests as &$req) {
                     <select name="PatientID" required>
                         <option disabled selected>Select Patient</option>
                         <?php foreach ($patients as $p): ?>
-                            <option value="<?= $p['PatientID'] ?>"><?= htmlspecialchars($p['Name']) ?></option>
+                            <option value="<?= (int)$p['PatientID'] ?>"><?= htmlspecialchars($p['Name']) ?></option>
                         <?php endforeach; ?>
                     </select>
                 </div>
                 <div class="form-group">
                     <label class="form-label">Doctor</label>
-                    <select name="DoctorID" required readonly>
-                        <?php foreach ($doctors as $doc): ?>
-                            <option value="<?= $doc['DoctorID'] ?>" <?= $doc['DoctorID'] == $doctorID ? "selected" : "" ?>>
-                                <?= htmlspecialchars($doc['DoctorName']) ?>
-                            </option>
-                        <?php endforeach; ?>
-                    </select>
+                    <!-- Use hidden input for DoctorID and show doctor's name -->
+                    <input type="hidden" name="DoctorID" value="<?= (int)$doctorID ?>">
+                    <input type="text" value="<?= htmlspecialchars($doctor_name) ?>" readonly style="width: 90%; padding: 10px; border-radius: 8px; border: 2px solid #ccc; background: #eee;">
                 </div>
                 <div class="form-group">
                     <label class="form-label">Test Date & Time</label>
@@ -171,54 +174,47 @@ foreach ($labRequests as &$req) {
         </form>
     </div>
 
-    <!-- Lab Requests Table -->
     <div class="card-box">
         <h4>Lab Requests</h4>
+
+        <?php
+        // Debug: Check for duplicates in labRequests
+        $seenIDs = [];
+        $duplicatesFound = false;
+        foreach ($labRequests as $req) {
+            if (in_array($req['LabReqID'], $seenIDs)) {
+                echo "<p style='color:red; font-weight:bold;'>Duplicate LabReqID found in PHP array: " . htmlspecialchars($req['LabReqID']) . "</p>";
+                $duplicatesFound = true;
+            } else {
+                $seenIDs[] = $req['LabReqID'];
+            }
+        }
+        ?>
+
         <table>
             <thead>
-                <tr>
-                    <th>ID</th>
-                    <th>Patient</th>
-                    <th>Doctor</th>
-                    <th>Test Date</th>
-                    <th>Procedure</th>
-                    <th>Status</th>
-                    <th>Result</th>
-                    <th>Update Result</th>
-                    <th>PDF</th>
-                </tr>
+            <tr>
+                <th>ID</th>
+                <th>Patient</th>
+                <th>Doctor</th>
+                <th>Test Date</th>
+                <th>Procedure</th>
+                <th>Status</th>
+                <th>PDF</th>
+            </tr>
             </thead>
             <tbody>
-                <?php foreach ($labRequests as $req): ?>
-                    <tr>
-                        <td><?= $req['LabReqID'] ?></td>
-                        <td><?= htmlspecialchars($req['PatientName']) ?></td>
-                        <td><?= htmlspecialchars($req['DoctorName']) ?></td>
-                        <td><?= htmlspecialchars($req['TestDate']) ?></td>
-                        <td><?= htmlspecialchars($req['ProcedureName']) ?></td>
-                        <td><?= htmlspecialchars($req['Status']) ?></td>
-                        <td><?= $req['Status'] === 'Done' ? htmlspecialchars($req['Result']) : '—' ?></td>
-                        <td>
-                            <?php if ($req['Status'] === 'In Progress'): ?>
-                                <form method="POST" class="inline-form">
-                                    <input type="hidden" name="update_result" value="1">
-                                    <input type="hidden" name="LabReqID" value="<?= $req['LabReqID'] ?>">
-                                    <textarea name="Result" required placeholder="Enter result..."></textarea>
-                                    <button type="submit" class="btn-update">Save</button>
-                                </form>
-                            <?php else: ?>
-                                —
-                            <?php endif; ?>
-                        </td>
-                        <td>
-                            <?php if ($req['Status'] === 'Done'): ?>
-                                <a href="LabResult_pdf.php?id=<?= $req['LabReqID'] ?>" target="_blank">Download PDF</a>
-                            <?php else: ?>
-                                —
-                            <?php endif; ?>
-                        </td>
-                    </tr>
-                <?php endforeach; ?>
+            <?php foreach ($labRequests as $req): ?>
+                <tr>
+                    <td><?= (int)$req['LabReqID'] ?></td>
+                    <td><?= htmlspecialchars($req['PatientName']) ?></td>
+                    <td><?= !empty($req['DoctorName']) ? htmlspecialchars($req['DoctorName']) : '<em>Unknown Doctor</em>' ?></td>
+                    <td><?= htmlspecialchars($req['TestDate']) ?></td>
+                    <td><?= htmlspecialchars($req['ProcedureName']) ?></td>
+                    <td><?= htmlspecialchars($req['Status']) ?></td>
+                    <td><a href="LabRequest_pdf.php?id=<?= (int)$req['LabReqID'] ?>" target="_blank">Download PDF</a></td>
+                </tr>
+            <?php endforeach; ?>
             </tbody>
         </table>
     </div>

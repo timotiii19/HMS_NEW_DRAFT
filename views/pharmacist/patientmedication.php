@@ -1,5 +1,7 @@
 <?php
-session_start();
+if (session_status() === PHP_SESSION_NONE) {
+    session_start();
+}
 if (!isset($_SESSION['username']) || $_SESSION['role'] != 'Pharmacist') {
     header("Location: ../../auth/pharmacist_login.php");
     exit();
@@ -99,6 +101,7 @@ $medications = $conn->query("SELECT pm.*, p.Name AS PatientName, d.DoctorName AS
 
     .content {
         padding: 40px;
+        margin-top: -20px;
     }
 
     table {

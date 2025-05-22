@@ -199,11 +199,7 @@
         <i class="fas fa-pills"></i><span class="label">Pharmacy</span>
       </a>
     </li>
-    <li>
-      <a href="/HMS-main/auth/logout.php">
-        <i class="fas fa-sign-out-alt"></i><span class="label">Logout</span>
-      </a>
-    </li>
+   <!-- <li><a href="/HMS-main/auth/logout.php"><i class="fa fa-sign-out-alt"></i><span class="label">Logout</span></a></li>-->
   </ul>
 </div>
 

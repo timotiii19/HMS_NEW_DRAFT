@@ -186,6 +186,7 @@ if ($locationsResult) {
 body {
     font-family: Arial, sans-serif;
     margin: 0px;
+    margin-top: 30px;
 }
 .tabs {
     display: flex;

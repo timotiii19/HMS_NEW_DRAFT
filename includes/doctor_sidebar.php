@@ -16,17 +16,17 @@
     }
 
     .sidebar {
-      position: fixed;
-      top: 50px;
-      width: 190px;
-      height: calc(100vh - 60px);
-      background-color: #9c335a;
-      padding: 20px;
-      color: white;
-      z-index: 1;
-      overflow-y: auto;
-      transition: width 0.3s ease;
-    }
+    position: fixed;
+    top: 70px;
+    width: 190px;
+    height: calc(100vh - 60px);
+    background-color: #9c335a;
+    padding: 20px;
+    color: white;
+    z-index: 1;
+    overflow-y: auto;
+    transition: width 0.3s ease;
+  }
 
     .sidebar.collapsed {
       width: 60px;
@@ -174,7 +174,7 @@
     </li>
 
     <li><a href="/HMS-main/views/doctors/labprocedure.php"><i class="fa fa-vials"></i><span class="label">Laboratory Procedure</span></a></li>
-    <li><a href="/HMS-main/auth/logout.php"><i class="fa fa-sign-out-alt"></i><span class="label">Logout</span></a></li>
+    <!-- <li><a href="/HMS-main/auth/logout.php"><i class="fa fa-sign-out-alt"></i><span class="label">Logout</span></a></li>-->
   </ul>
 </div>
 

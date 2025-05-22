@@ -7,7 +7,7 @@
     <li><a href="/HMS-main/views/pharmacist/dashboard.php"><i class="fa fa-pills"></i><span class="label">Dashboard</span></a></li>
     <li><a href="/HMS-main/views/pharmacist/patientmedication.php"><i class="fa fa-notes-medical"></i><span class="label">Patient Medication</span></a></li>
     <li><a href="/HMS-main/views/pharmacist/pharmacy.php"><i class="fa fa-capsules"></i><span class="label">Pharmacy</span></a></li>
-    <li><a href="/HMS-main/auth/logout.php"><i class="fa fa-sign-out-alt"></i><span class="label">Logout</span></a></li>
+    <!-- <li><a href="/HMS-main/auth/logout.php"><i class="fa fa-sign-out-alt"></i><span class="label">Logout</span></a></li>-->
   </ul>
 </div>
 

@@ -93,7 +93,7 @@ if ($hour < 12) {
 
 <div class="content">
     <div style="margin-top: 70px;">
-        <h3><?php echo $greet . ", " . htmlspecialchars($pharmacist_name); ?>!</h3>
+        <h3><?php echo $greet . ", Pharmacist " . htmlspecialchars($pharmacist_name); ?>!</h3>
         <p>This is your pharmacist dashboard. Use the cards below to manage medications and inventory.</p>
     </div>
 

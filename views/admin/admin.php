@@ -209,7 +209,7 @@ $admins = getAdmins($conn, $filter);
                     <td><?= htmlspecialchars($admin['username']) ?></td>
                     <td><?= htmlspecialchars($admin['full_name']) ?></td>
                     <td><?= htmlspecialchars($admin['email']) ?></td>
-                    <td><?= htmlspecialchars($admin['ContactNumber']) ?></td>
+                    <td><?= htmlspecialchars($admin['ContactNumber'] ?? '') ?></td>
                     <td><?= htmlspecialchars($admin['role']) ?></td>
                     <td><?= $admin['superadmin'] ? 'Yes' : 'No' ?></td>
                     <td>

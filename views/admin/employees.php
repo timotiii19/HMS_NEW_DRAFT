@@ -1,6 +1,9 @@
 <?php
 ob_start();
 session_start();
+
+$can_edit = false;
+
 if (!isset($_SESSION['username']) || $_SESSION['role'] != 'Admin') {
     header("Location: ../../auth/admin_login.php");
     exit();
@@ -31,7 +34,7 @@ if ($_SERVER['REQUEST_METHOD'] == 'POST' && isset($_POST['username'])) {
     if (mysqli_num_rows($check_result) > 0) {
         $error_message = "Username or Email already exists!";
     } else {
-        $query = "INSERT INTO users (username, full_name, email, password, role, ContactNumber 
+        $query = "INSERT INTO users (username, full_name, email, password, role, ContactNumber) 
                   VALUES ('$username', '$full_name', '$email', '$password', '$role', '$contact')";
         if (mysqli_query($conn, $query)) {
             $last_user_id = mysqli_insert_id($conn);
@@ -47,9 +50,6 @@ if ($_SERVER['REQUEST_METHOD'] == 'POST' && isset($_POST['username'])) {
                     break;
                 case 'Cashier':
                     $sql = "INSERT INTO cashier (UserID, Name) VALUES ('$last_user_id', '$full_name')";
-                    break;
-                case 'Receptionist':
-                    $sql = "INSERT INTO receptionist (UserID, Name, Email) VALUES ('$last_user_id', '$full_name', '$email')";
                     break;
                 case 'Admin':
                 default:
@@ -74,13 +74,13 @@ if ($_SERVER['REQUEST_METHOD'] == 'POST' && isset($_POST['update_user'])) {
     $role = mysqli_real_escape_string($conn, $_POST['edit_role']);
     $contact = mysqli_real_escape_string($conn, $_POST['edit_ContactNumber']);
 
-    $query = "UPDATE users SET username='$username', full_name='$full_name', email='$email', role='$role', ContactNumberr='$contact' WHERE UserID='$user_id'";
+    $query = "UPDATE users SET username='$username', full_name='$full_name', email='$email', role='$role', ContactNumber='$contact' WHERE UserID='$user_id'";
     mysqli_query($conn, $query);
     header("Location: employees.php");
     exit();
 }
 
-// Handle Delete
+// Handle Delete User
 if (isset($_GET['delete']) && is_numeric($_GET['delete'])) {
     $user_id = $_GET['delete'];
     $role_query = "SELECT role FROM users WHERE UserID = '$user_id'";
@@ -100,11 +100,8 @@ if (isset($_GET['delete']) && is_numeric($_GET['delete'])) {
             case 'Cashier':
                 mysqli_query($conn, "DELETE FROM cashier WHERE UserID = '$user_id'");
                 break;
-            case 'Receptionist':
-                mysqli_query($conn, "DELETE FROM receptionist WHERE UserID = '$user_id'");
-                break;
             case 'Admin':
-                mysqli_query($conn, "DELETE FROM admin WHERE user_id = '$user_id'");
+                mysqli_query($conn, "DELETE FROM admin WHERE UserID = '$user_id'");
                 break;
         }
         mysqli_query($conn, "DELETE FROM users WHERE UserID = '$user_id'");
@@ -116,6 +113,7 @@ if (isset($_GET['delete']) && is_numeric($_GET['delete'])) {
 $users = getUsers($conn);
 ?>
 
+
 <!-- HTML Output -->
 <!DOCTYPE html>
 <html lang="en">
@@ -123,7 +121,7 @@ $users = getUsers($conn);
     <meta charset="UTF-8">
     <title>Employee Management</title>
     <link rel="stylesheet" href="../../css/style.css" />
-    <style>
+     <style>
             
          body {
             font-family: Arial, sans-serif;
@@ -186,8 +184,8 @@ tr:hover {
 .form-container input,
 .form-container select,
 .form-container button {
-    margin: 10px 0;
-    padding: 8px;
+    margin: 6px 0;        /* was 10px, now tighter */
+    padding: 6px 10px;    /* slightly smaller padding */
     width: 100%;
     box-sizing: border-box;
     font-size: 14px;
@@ -195,13 +193,13 @@ tr:hover {
 
 .form-container label {
     display: block;
-    margin-top: 15px;
+    margin-top: 5px;
     font-weight: 600;
 }
 
 .right-column h2 {
-    margin-top: 20px;
-    margin-bottom: 20px;
+    margin-top: 0px;
+    margin-bottom: 0px;
 }
 
 .delete-link {
@@ -210,12 +208,12 @@ tr:hover {
 
 form input, form button {
     padding: 5px 10px;
-    margin-top: 5px;
+    margin-top: 0px;
 }
 
 /* Buttons from first style */
 button.view-btn {
-    background-color: #6f42c1;
+    background-color:rgb(232, 66, 96);
     color: white;
     border: none;
     border-radius: 6px;
@@ -224,7 +222,7 @@ button.view-btn {
 }
 
 button.view-btn:hover {
-    background-color: #512da8;
+    background-color:rgb(223, 84, 105);
 }
 
 /* Modal styles */
@@ -331,9 +329,10 @@ button.view-btn:hover {
                     <td><?= htmlspecialchars($user['username']) ?></td>
                     <td><?= htmlspecialchars($user['full_name']) ?></td>
                     <td><?= htmlspecialchars($user['email']) ?></td>
-                    <td><?= htmlspecialchars($user['ContactNumber']) ?></td>
+                    <td><?= htmlspecialchars($user['ContactNumber'] ?? '') ?></td>
                     <td><?= ucfirst(htmlspecialchars($user['role'])) ?></td>
                     <td>
+                         <?php if ($can_edit): ?>
                         <a href="javascript:void(0);" class="edit-btn"
                            data-id="<?= $user['UserID'] ?>"
                            data-username="<?= htmlspecialchars($user['username']) ?>"
@@ -341,6 +340,7 @@ button.view-btn:hover {
                            data-email="<?= htmlspecialchars($user['email']) ?>"
                            data-contact="<?= htmlspecialchars($user['ContactNumber']) ?>"
                            data-role="<?= htmlspecialchars($user['role']) ?>">Edit</a> |
+                            <?php endif; ?>
                         <a href="employees.php?delete=<?= $user['UserID'] ?>" onclick="return confirm('Delete this user?');" class="delete-link">Delete</a>
                     </td>
                 </tr>
@@ -381,6 +381,10 @@ button.view-btn:hover {
                 <button type="submit">Add User</button>
             </form>
             <?php if (isset($error_message)) echo "<p style='color:red;'>$error_message</p>"; ?>
+
+            <div id="pdf-button-container" style="position:fixed; bottom:20px; right:120px;">
+                <button onclick="document.getElementById('filterModal').style.display='block'" class="btn btn-primary">Generate PDF</button>
+            </div>
         </div>
     </div>
 </div>
@@ -410,11 +414,6 @@ button.view-btn:hover {
             <button type="button" onclick="document.getElementById('editModal').style.display='none'">Cancel</button>
         </div>
     </form>
-</div>
-
-<!-- PDF Button & Modal -->
-<div id="pdf-button-container" style="position:fixed; bottom:20px; right:20px;">
-    <button onclick="document.getElementById('filterModal').style.display='block'" class="btn btn-primary">Generate PDF</button>
 </div>
 
 <div id="filterModal" style="display:none; position:fixed; bottom:70px; right:20px; background:#fff; border:1px solid #ccc; padding:10px; z-index:10000;">

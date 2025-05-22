@@ -17,10 +17,11 @@ $result = $conn->query($sql);
     <title>Outpatients Table</title>
     <style>
         .main-content {
-            margin-left: 220px; /* matches sidebar width /
-            padding: 80px 20px 20px; / padding top accounts for fixed header */
+            margin-left: 220px; 
+            padding: 80px 20px 20px; 
             background-color: #f4f9f9;
             min-height: 100vh;
+            margin-top: -50px;
         }
 
         .outpatient-table {

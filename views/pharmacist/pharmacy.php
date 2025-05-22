@@ -50,7 +50,7 @@ include('../../includes/pharmacist_header.php');
     <style>
         a.delete-btn {
             color: white;
-            background-color:rgba(220, 53, 70, 0.64);
+            background-color:rgba(237, 29, 50, 0.64);
             padding: 8px 16px;
             border-radius: 6px;
             text-decoration: none;
@@ -63,7 +63,7 @@ include('../../includes/pharmacist_header.php');
 
         .update-btn {
             color: white;
-            background-color:rgba(0, 255, 123, 0.6);;
+            background-color:rgba(212, 89, 121, 0.9);;
             padding: 8px 16px;
             border: none;
             border-radius: 6px;
@@ -73,7 +73,7 @@ include('../../includes/pharmacist_header.php');
         }
 
         .update-btn:hover {
-            background-color:rgb(0, 255, 123);
+            background-color:rgba(212, 89, 121, 0.9);;
         }
 
         input[type="number"]::-webkit-outer-spin-button,
@@ -163,6 +163,7 @@ include('../../includes/pharmacist_header.php');
 
     .content {
         padding: 40px;
+        margin-top: -20px;
     }
 
     table {
@@ -178,7 +179,7 @@ include('../../includes/pharmacist_header.php');
     }
 
     th {
-        background-color:rgb(156, 17, 17);
+        background-color:rgb(187, 27, 27);
         color:rgb(255, 255, 255);
     }
 
@@ -188,7 +189,7 @@ include('../../includes/pharmacist_header.php');
     }
 
     button.view-btn {
-        background-color: #6f42c1;
+        background-color:rgb(207, 93, 122);
         color: white;
         border: none;
         border-radius: 6px;
@@ -197,7 +198,7 @@ include('../../includes/pharmacist_header.php');
     }
 
     button.view-btn:hover {
-        background-color: #512da8;
+        background-color:rgb(218, 80, 108);
     }
 
     /* Modal styles (based on your patient details page) */
@@ -273,14 +274,14 @@ include('../../includes/pharmacist_header.php');
         margin-top: 30px;
         text-decoration: none;
         color: #fff;
-        background-color: #6f42c1;
+        background-color:rgb(237, 105, 140);
         padding: 10px 20px;
         border-radius: 6px;
         font-size: 14px;
     }
 
     .back-link:hover {
-        background-color: #512da8;
+        background-color:rgb(234, 90, 131);
     }
 </style>
 </head>
