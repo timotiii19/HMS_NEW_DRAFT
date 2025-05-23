@@ -1,17 +1,12 @@
 <?php
-if (session_status() === PHP_SESSION_NONE) {
-    session_start();
-}
+session_start();
 if (!isset($_SESSION['username']) || $_SESSION['role'] != 'Pharmacist') {
     header("Location: ../../auth/pharmacist_login.php");
     exit();
 }
 
-include('../../includes/pharmacist_sidebar.php');
-include('../../includes/pharmacist_header.php');
-include('../../config/db.php');
-
-if (isset($_POST['dispense'])) {
+if ($_SERVER['REQUEST_METHOD'] == 'POST' && isset($_POST['dispense'])) {
+    include('../../config/db.php');
     $medication_id = $_POST['medication_id'];
 
     $update_query = "UPDATE patientmedication SET Status = 'Already Dispensed' WHERE PatientMedicationID = ?";
@@ -26,6 +21,12 @@ if (isset($_POST['dispense'])) {
         exit();
     }
 }
+
+// Only include UI after redirects
+include('../../includes/pharmacist_sidebar.php');
+include('../../includes/pharmacist_header.php');
+include('../../config/db.php');
+
 
 $medications = $conn->query("SELECT pm.*, p.Name AS PatientName, d.DoctorName AS DoctorName 
                             FROM patientmedication pm
@@ -62,7 +63,6 @@ $medications = $conn->query("SELECT pm.*, p.Name AS PatientName, d.DoctorName AS
             <th>Frequency</th> 
             <th>Start Date</th>
             <th>End Date</th>
-            <th>Status</th> 
             <th>Action</th> 
         </tr>
         <?php while ($row = $medications->fetch_assoc()) { ?>
@@ -74,7 +74,6 @@ $medications = $conn->query("SELECT pm.*, p.Name AS PatientName, d.DoctorName AS
             <td><?= $row['Frequency'] ?></td>
             <td><?= $row['StartDate'] ?></td>
             <td><?= $row['EndDate'] ?></td>
-            <td><?= $row['Status'] ?></td>
             <td>
                 <?php if ($row['Status'] == 'Not Yet Dispensed') { ?>
                     <form method="post" action="patientmedication.php">

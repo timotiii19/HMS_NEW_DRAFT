@@ -53,10 +53,11 @@ require_once('../../dompdf/vendor/autoload.php');
 use Dompdf\Dompdf;
 
 // Convert the logo image to a data URI
-$logoPath = 'C:/xampp/htdocs/HMS_NEW_DRAFT-main/images/charticon.png';
+$logoPath = 'C:/xampp/htdocs/HMS-main/images/hosplogo-hp.png';
 $logoData = base64_encode(file_get_contents($logoPath));
 $logoMime = mime_content_type($logoPath);
 $logoURI = 'data:'.$logoMime.';base64,'.$logoData;
+
 
 $html = '
 <!DOCTYPE html>
@@ -81,7 +82,7 @@ $html = '
 <body>
     <div class="header">
         <div class="logo">
-            <img src="http://localhost/HMS_NEW_DRAFT-main/images/charticon.png" alt="Hospital Logo">
+             <img src="'.$logoURI.'" alt="Hospital Logo" style="height: 60px;">
         </div>
         <div class="hospital-name">Chart Memorial Hospital</div>
         <div class="receipt-title">OFFICIAL RECEIPT</div>

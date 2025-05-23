@@ -6,8 +6,6 @@ if (!isset($_SESSION['username']) || $_SESSION['role'] != 'Admin') {
     exit();
 }
 
-$can_edit = false;
-
 include('../../includes/admin_header.php');
 include('../../config/db.php');
 
@@ -15,27 +13,15 @@ if (!$conn) {
     die("Database connection failed");
 }
 
-// Update nurse
+// Update nurse (only availability and department)
 if (isset($_POST['update_nurse'])) {
     $nurse_id = $_POST['nurse_id'];
     $availability = $_POST['availability'];
-    $contact = $_POST['contact'];
+    $department_id = $_POST['department_id'];
 
-    // Update nurse availability
-    $stmt = $conn->prepare("UPDATE nurse SET Availability=? WHERE NurseID=?");
-    $stmt->bind_param("si", $availability, $nurse_id);
+    $stmt = $conn->prepare("UPDATE nurse SET Availability=?, DepartmentID=? WHERE NurseID=?");
+    $stmt->bind_param("sii", $availability, $department_id, $nurse_id);
     $stmt->execute();
-
-    // Get UserID to update users table
-    $result2 = $conn->query("SELECT UserID FROM nurse WHERE NurseID = $nurse_id");
-    if ($row2 = $result2->fetch_assoc()) {
-        $user_id = $row2['UserID'];
-
-        // Update contact in users table
-        $stmt2 = $conn->prepare("UPDATE users SET ContactNumber=? WHERE UserID=?");
-        $stmt2->bind_param("si", $contact, $user_id);
-        $stmt2->execute();
-    }
 
     header("Location: nurses.php");
     exit();
@@ -54,14 +40,22 @@ if (isset($_GET['delete'])) {
     exit();
 }
 
-// Optional: add filter by DepartmentID or Availability here if you want
 $filter_availability = isset($_GET['availability']) ? $_GET['availability'] : 'all';
-
 $whereClause = '';
 if ($filter_availability !== 'all') {
     $whereClause = " AND n.Availability = '" . $conn->real_escape_string($filter_availability) . "'";
 }
 
+// Get departments for dropdown
+$departments = [];
+$dept_result = $conn->query("SELECT DepartmentID, DepartmentName FROM department");
+if ($dept_result && $dept_result->num_rows > 0) {
+    while ($dept = $dept_result->fetch_assoc()) {
+        $departments[] = $dept;
+    }
+}
+
+// Get nurse data
 $query = "SELECT n.NurseID, u.username AS NurseName, u.email AS Email, u.ContactNumber, n.Availability, n.DepartmentID
           FROM nurse n
           JOIN users u ON n.UserID = u.UserID
@@ -152,7 +146,6 @@ include('../../includes/admin_sidebar.php');
     .delete-link:hover {
         text-decoration: none;
     }
-    /* Modal styles */
     .modal {
         position: fixed;
         z-index: 9999;
@@ -185,7 +178,7 @@ include('../../includes/admin_sidebar.php');
     .close:hover {
         color: #000;
     }
-    form input, form button {
+    form input, form button, form select {
         padding: 8px 12px;
         margin-top: 10px;
         width: 100%;
@@ -242,16 +235,13 @@ include('../../includes/admin_sidebar.php');
                         <td><?= htmlspecialchars($row['ContactNumber'] ?? '') ?></td>
                         <td><?= htmlspecialchars($row['DepartmentID'] ?? '') ?></td>
                         <td>
-                             <?php if ($can_edit): ?>
                             <span class="edit-link" 
                                 onclick="showEditForm(
                                     <?= $row['NurseID'] ?>,
-                                    '<?= addslashes(htmlspecialchars($row['Availability'] ?? '')) ?>',
-                                    '<?= addslashes(htmlspecialchars($row['ContactNumber'] ?? '')) ?>',
-                                    '<?= addslashes(htmlspecialchars($row['Email'])) ?>'
+                                    '<?= htmlspecialchars($row['Availability'] ?? '') ?>',
+                                    <?= $row['DepartmentID'] ?>
                                 )">Edit</span>
                             |
-                            <?php endif; ?>
                             <a href="?delete=<?= $row['NurseID'] ?>" class="delete-link" onclick="return confirm('Are you sure?')">Delete</a>
                         </td>
                     </tr>
@@ -270,19 +260,18 @@ include('../../includes/admin_sidebar.php');
     <span class="close" onclick="closeModal()">&times;</span>
     <h3>Edit Nurse Details</h3>
     <form id="editForm" method="post" action="nurses.php">
-      <input type="hidden" name="nurse_id" id="nurse_id" value="">
-      <div class="form-group">
-        <label>Availability</label>
-        <input type="text" name="availability" id="availability" required>
-      </div>
-      <div class="form-group">
-        <label>Contact Number</label>
-        <input type="text" name="contact" id="contact" required>
-      </div>
-      <div class="form-group">
-        <label>Email</label>
-        <input type="email" id="email" disabled>
-      </div>
+      <input type="hidden" name="nurse_id" id="nurse_id">
+      <label>Availability</label>
+      <select name="availability" id="availability">
+        <option value="Available">Available</option>
+        <option value="On Leave">On Leave</option>
+      </select>
+      <label>Department</label>
+      <select name="department_id" id="department_id">
+        <?php foreach ($departments as $dept): ?>
+            <option value="<?= $dept['DepartmentID'] ?>"><?= htmlspecialchars($dept['DepartmentName']) ?></option>
+        <?php endforeach; ?>
+      </select>
       <button type="submit" name="update_nurse" class="save-btn">Save Changes</button>
     </form>
   </div>
@@ -293,17 +282,15 @@ function closeModal() {
     document.getElementById('editModal').style.display = 'none';
 }
 
-function showEditForm(nurseID, availability, contact, email) {
+function showEditForm(nurseID, availability, departmentID) {
     const modal = document.getElementById('editModal');
     modal.style.display = 'flex';
 
     document.getElementById('nurse_id').value = nurseID;
     document.getElementById('availability').value = availability;
-    document.getElementById('contact').value = contact;
-    document.getElementById('email').value = email;
+    document.getElementById('department_id').value = departmentID;
 }
 
-// Close modal when clicking outside the modal-content
 window.onclick = function(event) {
     const modal = document.getElementById('editModal');
     if (event.target === modal) {
@@ -313,5 +300,3 @@ window.onclick = function(event) {
 </script>
 </body>
 </html>
-
-<?php ob_end_flush(); ?>

@@ -1,7 +1,7 @@
 <?php
 session_start();
-if (!isset($_SESSION['username']) || $_SESSION['role'] != 'Admin') {
-    header("Location: ../../auth/admin_login.php");
+if (!isset($_SESSION['username']) || $_SESSION['role'] != 'Nurse') {
+    header("Location: ../../auth/nurse_login.php");
     exit();
 }
 
@@ -15,8 +15,8 @@ function getPatients($conn) {
 }
 
 $patients = getPatients($conn);
-include('../../includes/admin_header.php');
-include('../../includes/admin_sidebar.php');
+include('../../includes/nurse_header.php');
+include('../../includes/nurse_sidebar.php');
 ?>
 
 <!DOCTYPE html>

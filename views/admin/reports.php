@@ -233,7 +233,7 @@ $result = $conn->query($sql);
                 <th>Receipt</th>
                 <th>Payment Method</th>
                 <th>Created At</th>
-                <th>Cashier</th>
+             <!--   <th>Cashier</th> -->
                 <th>Download PDF</th>
             </tr>
         </thead>
@@ -251,7 +251,7 @@ $result = $conn->query($sql);
                         <td><?= htmlspecialchars($row['Receipt']) ?></td>
                         <td><?= htmlspecialchars($row['PaymentMethod']) ?></td>
                         <td><?= htmlspecialchars($row['CreatedAt']) ?></td>
-                        <td><?= htmlspecialchars($row['CashierName']) ?></td>
+                <!--    <td><?= htmlspecialchars($row['CashierName']) ?></td> -->
                         <td>
                            <a href="export_billing_pdf.php?billing_id=<?= $row['BillingID'] ?>" target="_blank" class="btn-download">Download PDF</a>
                         </td>

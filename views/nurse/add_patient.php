@@ -17,13 +17,13 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
     $dob = $_POST['dob'];
     $sex = $_POST['sex'];
     $address = $_POST['address'];
-    $contact = $_POST['contact'];
-    $assignedNurseId = $_POST['assigned_nurse_id'];
+    $contact = $_POST['Contact'];
+    $NurseId = $_POST['NurseID'];
 
     $patientType = 'N/A'; // default type
 
-    $stmt = $conn->prepare("INSERT INTO patients (Name, DateOfBirth, Sex, Address, Contact, PatientType, AssignedNurseID) VALUES (?, ?, ?, ?, ?, ?, ?)");
-    $stmt->bind_param("ssssssi", $name, $dob, $sex, $address, $contact, $patientType, $assignedNurseId);
+    $stmt = $conn->prepare("INSERT INTO patients (Name, DateOfBirth, Sex, Address, Contact, PatientType, NurseID) VALUES (?, ?, ?, ?, ?, ?, ?)");
+    $stmt->bind_param("ssssssi", $name, $dob, $sex, $address, $contact, $patientType, $NurseId);
 
     if ($stmt->execute()) {
         $newPatientID = $stmt->insert_id;
@@ -190,8 +190,8 @@ button.btn-primary:hover {
         <label for="address">Address:</label>
         <input type="text" name="address" id="address" required>
 
-        <label for="contact">Contact:</label>
-        <input type="text" name="contact" id="contact" required>
+        <label for="Contact">Contact:</label>
+        <input type="text" name="Contact" id="Contact" required>
 
 <input type="hidden" name="assigned_nurse_id" id="assigned_nurse_id" value="<?= $loggedInNurseId ?>">
 
